@@ -1,0 +1,116 @@
+[gd_scene load_steps=5 format=2]
+
+[sub_resource type="GDScript" id=16]
+script/source = "extends KinematicBody2D
+
+# Entidade pai de objetos fisicos, da terra ou flutuante
+
+var dir: int = 0
+var vdir: int = 0
+var velocity: Vector2
+var pscale: int = 8
+var gravity: int = 320 * pscale
+
+export var has_gravity: bool = true
+export var run_speed: int = 40 * pscale
+
+var current_state := 0
+
+onready var Sprite = $SpriteSheet
+onready var Animation = $AnimationPlayer
+onready var GroundParticles = $GroundParticles
+
+var timer: float = 0
+
+func _physics_process(delta):
+	
+	_limit_vspeed()
+	
+# States
+
+
+# Helpers
+# Funções basicas que vão se repetir dependendo da State
+func _apply_gravity(_delta):
+	if has_gravity:
+		velocity.y += gravity * _delta
+func _move_and_slide():
+	velocity = move_and_slide(velocity,Vector2.UP)
+
+func _limit_vspeed():
+	if velocity.y>=1500:
+		velocity.y=1500
+
+"
+
+[sub_resource type="Animation" id=17]
+resource_name = "Idle"
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 0 ]
+}
+
+[sub_resource type="Animation" id=18]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ 0 ]
+}
+
+[sub_resource type="Curve" id=7]
+_data = [ Vector2( 0.00429185, 0.351136 ), 0.0, 0.0, 0, 0, Vector2( 0.497854, 1 ), 0.0, 0.0, 0, 0, Vector2( 0.987124, 0.0602273 ), 0.0, 0.0, 0, 0 ]
+
+[node name="Object" type="KinematicBody2D"]
+z_index = 1
+collision_layer = 129
+collision_mask = 129
+script = SubResource( 16 )
+
+[node name="SpriteSheet" type="Sprite" parent="."]
+scale = Vector2( 8, 8 )
+hframes = 6
+vframes = 2
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+autoplay = "Idle"
+anims/Idle = SubResource( 17 )
+anims/RESET = SubResource( 18 )
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2( 0, -33 )
+
+[node name="GroundParticles" type="CPUParticles2D" parent="."]
+position = Vector2( -6, 0 )
+emitting = false
+amount = 3
+lifetime = 2.0
+speed_scale = 6.0
+emission_shape = 2
+emission_rect_extents = Vector2( 24, 5 )
+direction = Vector2( -2, -1 )
+spread = 45.37
+gravity = Vector2( 0, 12 )
+initial_velocity = 35.52
+initial_velocity_random = 0.05
+angular_velocity = 1.0
+angle = 720.0
+angle_random = 1.0
+scale_amount = 8.0
+scale_amount_curve = SubResource( 7 )
+color = Color( 0, 0, 0, 0.372549 )

@@ -1,0 +1,755 @@
+[gd_scene load_steps=30 format=2]
+
+[ext_resource path="res://Object/Entity/Grounded.tscn" type="PackedScene" id=1]
+[ext_resource path="res://assets/pix.png" type="Texture" id=2]
+[ext_resource path="res://assets/18861-radial_gradient.png" type="Texture" id=3]
+[ext_resource path="res://assets/playerswd.png" type="Texture" id=4]
+[ext_resource path="res://Object/Helpers/Hurtbox.tscn" type="PackedScene" id=5]
+[ext_resource path="res://Object/Camera2D.tscn" type="PackedScene" id=6]
+
+[sub_resource type="GDScript" id=2]
+script/source = "extends \"res://Object/Entity/Grounded.tscn::16\"
+
+const PROJECTILE := preload(\"res://Object/Carrot.tscn\")
+
+var dash_UNLOCKED: bool = true
+var dash: bool
+var dash_counter: int = 0
+
+var djump_UNLOCKED: bool = true
+var djump: bool = false
+var jump_counter: int = 0
+var can_jump: bool = true
+
+onready var Hurtbox = $Hurtbox
+var owp = null
+
+# Helper vars
+var _moving_through_diagonal_wall: bool
+
+onready var DashParticles = $DashParticles
+
+func _ready(): 
+	Global.soft_checkpoint = position
+	life_max = Global.player_life_max
+	life = life_max
+	$Attack1/Sprite.visible = false
+	$Attack1/CollisionShape2D.disabled = true
+
+func _physics_process(delta):
+	Global.player_life = life
+	dir = Input.get_action_strength('game_left') - Input.get_action_strength('game_right')
+	vdir = Input.get_action_strength('game_up') - Input.get_action_strength('game_down')
+	action = Input.is_action_just_pressed(\"game_action\")
+	if action: 
+		action_buffer = true
+	if action_buffer: 
+		$ActionArea/ActionBuffer.start()
+	
+	jump = Input.is_action_just_pressed(\"game_jump\")
+	dash = Input.is_action_just_pressed(\"game_dash\") 
+	
+	_moving_through_diagonal_wall = is_on_wall() && abs(velocity.x)>1
+	
+	Sprite.flip_h = get_local_mouse_position().x<0
+	
+	if is_on_floor() || _moving_through_diagonal_wall:
+		Global.player_out = false
+		$CoyoteTimer.start()
+		can_jump = true
+		jump_counter = 1 if djump_UNLOCKED else 0
+		dash_counter = 1 if dash_UNLOCKED else 0
+	match current_state:
+		ATTACK:
+			_attack1_state(delta)
+		ATTACK2:
+			_attack2_state(delta)
+		DASH:
+			_dash_state(delta)
+		BOOSTJUMP:
+			_jump_state(delta, true)
+		BOOSTFALL:
+			_fall_state(delta, true)
+	_limit_vspeed()
+	_handle_action_objects()
+	
+# States
+func _idle_state(_delta):
+	Animation.play(\"idle\")
+	_move_and_slide()
+	_apply_gravity(_delta)
+	
+	if owp && Input.is_action_just_pressed(\"game_down\"):
+		owp.get_node(\"CollisionShape2D\").disabled = true
+		action=true
+	
+	velocity.x=0
+	
+	if dir:
+		current_state = RUN
+	if jump:
+		current_state = JUMP
+	if dash && dash_counter>0:
+		current_state = DASH
+	if velocity.y!=0 and !is_on_floor():
+		current_state = FALL
+	if Input.is_action_just_pressed(\"game_attack1\"):
+		current_state = ATTACK
+	if Input.is_action_just_pressed(\"game_attack2\") && Global.carrot>0:
+		GroundParticles.emitting = false
+		current_state = ATTACK2
+	if knockback:
+		current_state = HURT
+
+func _run_state(_delta):
+	Animation.play(\"run\")
+	GroundParticles.emitting = true
+	GroundParticles.direction.x =  2 * dir
+	GroundParticles.position.x = 6 * dir
+	_move_lr()
+	_move_and_slide()
+	_apply_gravity(_delta)
+	
+	if !dir:
+		GroundParticles.emitting = false
+		current_state = IDLE
+	if jump:
+		GroundParticles.emitting = false
+		current_state = JUMP
+	if dash && dash_counter>0:
+		GroundParticles.emitting = false
+		current_state = DASH
+	if velocity.y>0 and !is_on_floor():
+		GroundParticles.emitting = false
+		current_state = FALL
+	if Input.is_action_just_pressed(\"game_attack1\"):
+		GroundParticles.emitting = false
+		current_state = ATTACK
+	if Input.is_action_just_pressed(\"game_attack2\") && Global.carrot>0:
+		GroundParticles.emitting = false
+		current_state = ATTACK2
+	if knockback:
+		GroundParticles.emitting = false
+		current_state = HURT
+
+func _jump_state(_delta, boost: bool = false):
+	if boost && abs(dir) < 0.5: current_state = JUMP
+	Animation.play(\"jump\")
+	boost = boost && abs(dir) > 0.5
+	GroundParticles.emitting = false
+	DashParticles.emitting = boost
+	if is_on_floor() || can_jump:
+		can_jump = false
+		velocity.y = jump_force
+	elif Input.is_action_just_released(\"game_jump\") and velocity.y < jump_force*0.1:
+		velocity.y = jump_force * 0.1
+	elif djump: 
+		velocity.y = jump_force
+		djump = false
+		jump_counter-=1
+	_move_lr(boost)
+	_move_and_slide()
+	_apply_gravity(_delta)
+	
+	if _moving_through_diagonal_wall:
+		current_state = RUN
+	if velocity.y >= 0:
+		current_state = BOOSTFALL if boost else FALL
+	if dash && dash_counter>0:
+		current_state = DASH
+	if knockback:
+		current_state = HURT
+
+func _fall_state(_delta, boost: bool = false):
+	if boost && abs(dir) < 0.5: current_state = FALL
+	Animation.play(\"fall\")
+	GroundParticles.emitting = false
+	DashParticles.emitting = boost
+	_move_lr(boost)
+	_move_and_slide()
+	_apply_gravity(_delta)
+	
+	if _moving_through_diagonal_wall:
+		current_state = RUN
+	if is_on_floor():
+		current_state = IDLE
+		GroundParticles.emitting = false
+		DashParticles.emitting = false
+	if dash && dash_counter>0:
+		current_state = DASH
+	if jump && can_jump:
+		current_state = JUMP 
+	if jump && jump_counter>0:
+		djump = true
+		current_state = BOOSTJUMP if boost else JUMP
+	if knockback:
+		current_state = HURT
+
+func _attack1_state(_delta):
+	Animation.play(\"attack\")
+	$Attack1/Sprite.visible = true
+	$Attack1/AnimationPlayer.play(\"sword\")
+	velocity.x=0
+	_move_and_slide()
+	_apply_gravity(_delta)
+
+func _attack2_state(_delta):
+	if !Animation.current_animation == \"attack2\":
+		Global.carrot -= 1
+		var projectile_inst = PROJECTILE.instance()
+		get_parent().add_child(projectile_inst)
+		projectile_inst.position = Vector2(position.x,position.y-5*pscale)
+		var projectile_dir = Vector2(position.x,position.y-40).direction_to(get_global_mouse_position())
+		projectile_inst.launch(Vector2(projectile_dir.x*1200, projectile_dir.y*1500))
+	Animation.play(\"attack2\")
+	velocity.x=0
+	_move_and_slide()
+	_apply_gravity(_delta)
+
+func _dash_state(_delta):
+	dash_counter-=1
+	Animation.play(\"dash\")
+	GroundParticles.emitting = abs(velocity.x)>10
+	DashParticles.emitting = abs(velocity.x)>10
+	DashParticles.position.x = -16 if dir>0 else 16
+	DashParticles.direction.x = 2 if dir>0 else -2
+	if velocity.y!=0:
+		DashParticles.gravity.y = -velocity.y * .15
+	knockback=0
+	
+	if dir<=0:
+		velocity.x = run_speed * 4
+	else: 
+		velocity.x = -run_speed * 4
+	velocity.y = 0
+	_move_and_slide()
+	
+	if jump && can_jump:
+		current_state = BOOSTJUMP
+
+func _climb_state(delta):
+	if !Animation.current_animation == \"climb1\":
+		position.y-=1
+		action=false
+	Animation.play(\"climb1\")
+	if abs(velocity.y)>1:
+		Animation.playback_speed = 1
+	else:
+		Animation.playback_speed = 0
+	_move_ud()
+	_move_and_slide()
+	
+	if action || is_on_floor(): 
+		action_buffer = false
+		Animation.playback_speed = 1
+		current_state = IDLE
+	if dash:
+		action_buffer = false
+		Animation.playback_speed = 1
+		current_state = IDLE
+	if !current_action_area: 
+		Animation.playback_speed = 1
+		current_state = IDLE
+	if knockback:
+		Animation.playback_speed = 1
+		action_buffer = false
+		current_state = IDLE
+
+func _hurt_state(_delta):
+	Animation.play(\"hurt\")
+	velocity.x = knockback
+	if is_on_floor():
+		velocity.y = -knockback/3
+	_move_and_slide()
+	_apply_gravity(_delta)
+
+func _handle_life():
+	if life<=0:
+		get_tree().reload_current_scene()
+func _is_player(): 
+	return true
+
+# Signals
+func _on_AnimationPlayer_animation_finished(anim_name):
+	if current_state == ATTACK:
+		current_state = IDLE
+		$Attack1/Sprite.visible = false
+		$Attack1/AnimationPlayer.stop()
+	if current_state == ATTACK2:
+		current_state = IDLE
+	if current_state == DASH:
+		GroundParticles.emitting = is_on_floor()
+		DashParticles.emitting = false
+		current_state = IDLE
+	if current_state == HURT:
+		current_state = IDLE
+		knockback = 0
+func _on_CoyoteTimer_timeout():
+	can_jump = false
+
+func _on_SpikeCollider_area_entered(area):
+	if area.is_in_group(\"Spike\"):
+		life-=1
+		position = Global.soft_checkpoint
+		Global.player_out = true
+
+func _on_OWPDetect_body_entered(body):
+	if body.is_in_group(\"OneWayPlatform\"):
+		owp = body
+
+func _on_OWPDetect_body_exited(body):
+	if body.is_in_group(\"OneWayPlatform\"):
+		body.get_node(\"Timer\").start()
+"
+
+[sub_resource type="Shader" id=32]
+code = "shader_type canvas_item;
+
+render_mode blend_mix;
+uniform vec4 modulate: hint_color;
+
+void fragment() {
+	COLOR = vec4(modulate.rgb, texture(TEXTURE, UV).a * modulate.a);
+}
+"
+
+[sub_resource type="ShaderMaterial" id=33]
+shader = SubResource( 32 )
+shader_param/modulate = Color( 0, 0, 0, 1 )
+
+[sub_resource type="Animation" id=20]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ 1 ]
+}
+tracks/1/type = "value"
+tracks/1/path = NodePath("SpriteSheet:material:shader_param/modulate")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ Color( 0, 0, 0, 1 ) ]
+}
+
+[sub_resource type="Animation" id=21]
+resource_name = "attack"
+length = 0.6
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 0.1, 0.2, 0.3 ),
+"transitions": PoolRealArray( 1, 1, 1, 1 ),
+"update": 1,
+"values": [ 8, 9, 10, 11 ]
+}
+
+[sub_resource type="Animation" id=31]
+resource_name = "attack2"
+length = 0.6
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 0.1, 0.2, 0.3 ),
+"transitions": PoolRealArray( 1, 1, 1, 1 ),
+"update": 1,
+"values": [ 8, 9, 10, 11 ]
+}
+
+[sub_resource type="Animation" id=22]
+resource_name = "climb"
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 7 ]
+}
+
+[sub_resource type="Animation" id=23]
+resource_name = "dash"
+length = 0.15
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 6 ]
+}
+
+[sub_resource type="Animation" id=24]
+resource_name = "dashup"
+length = 0.15
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 7 ]
+}
+
+[sub_resource type="Animation" id=25]
+resource_name = "fall"
+length = 0.1
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 5 ]
+}
+
+[sub_resource type="Animation" id=26]
+resource_name = "hurt"
+length = 0.15
+step = 0.01
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 5 ]
+}
+tracks/1/type = "value"
+tracks/1/path = NodePath("SpriteSheet:material:shader_param/modulate")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"times": PoolRealArray( 0, 0.15 ),
+"transitions": PoolRealArray( 1, 1 ),
+"update": 2,
+"values": [ Color( 1, 1, 1, 1 ), Color( 0, 0, 0, 1 ) ]
+}
+
+[sub_resource type="Animation" id=27]
+resource_name = "idle"
+length = 0.1
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 0 ]
+}
+
+[sub_resource type="Animation" id=28]
+resource_name = "jump"
+length = 0.1
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 4 ]
+}
+
+[sub_resource type="Animation" id=29]
+resource_name = "run"
+length = 0.3
+loop = true
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 0.1, 0.2 ),
+"transitions": PoolRealArray( 1, 1, 1 ),
+"update": 1,
+"values": [ 1, 2, 3 ]
+}
+
+[sub_resource type="CapsuleShape2D" id=9]
+radius = 16.0
+height = 34.0
+
+[sub_resource type="RectangleShape2D" id=3]
+extents = Vector2( 16, 40 )
+
+[sub_resource type="RectangleShape2D" id=18]
+extents = Vector2( 16, 40 )
+
+[sub_resource type="RectangleShape2D" id=4]
+extents = Vector2( 44, 10 )
+
+[sub_resource type="Animation" id=5]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/path = NodePath("Attack1/Sprite:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ 0 ]
+}
+tracks/1/type = "value"
+tracks/1/path = NodePath("Attack1/CollisionShape2D:disabled")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ false ]
+}
+
+[sub_resource type="Animation" id=6]
+resource_name = "sword"
+length = 0.6
+tracks/0/type = "value"
+tracks/0/path = NodePath("Attack1/Sprite:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 0.1, 0.2, 0.3, 0.4, 0.5 ),
+"transitions": PoolRealArray( 1, 1, 1, 1, 1, 1 ),
+"update": 1,
+"values": [ 0, 1, 2, 3, 4, 5 ]
+}
+tracks/1/type = "value"
+tracks/1/path = NodePath("Attack1/CollisionShape2D:disabled")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"times": PoolRealArray( 0, 0.3 ),
+"transitions": PoolRealArray( 1, 1 ),
+"update": 1,
+"values": [ false, true ]
+}
+
+[sub_resource type="Curve" id=7]
+_data = [ Vector2( 0.00429185, 0.351136 ), 0.0, 0.0, 0, 0, Vector2( 0.497854, 1 ), 0.0, 0.0, 0, 0, Vector2( 0.987124, 0.0602273 ), 0.0, 0.0, 0, 0 ]
+
+[sub_resource type="Gradient" id=8]
+offsets = PoolRealArray( 0.018018, 1 )
+colors = PoolColorArray( 0, 0, 0, 0.490196, 1, 1, 1, 0 )
+
+[sub_resource type="RectangleShape2D" id=30]
+extents = Vector2( 24, 40 )
+
+[node name="Player" groups=["Player"] instance=ExtResource( 1 )]
+collision_layer = 65
+collision_mask = 65
+script = SubResource( 2 )
+
+[node name="SpriteSheet" parent="." index="0"]
+material = SubResource( 33 )
+
+[node name="AnimationPlayer" parent="." index="1"]
+anims/RESET = SubResource( 20 )
+anims/attack = SubResource( 21 )
+anims/attack2 = SubResource( 31 )
+anims/climb = SubResource( 22 )
+anims/dash = SubResource( 23 )
+anims/dashup = SubResource( 24 )
+anims/fall = SubResource( 25 )
+anims/hurt = SubResource( 26 )
+anims/idle = SubResource( 27 )
+anims/jump = SubResource( 28 )
+anims/run = SubResource( 29 )
+
+[node name="CollisionShape2D" parent="." index="2"]
+shape = SubResource( 9 )
+
+[node name="Camera2D" parent="." index="4" instance=ExtResource( 6 )]
+
+[node name="Bg" type="Node2D" parent="." index="5"]
+
+[node name="Green" type="Sprite" parent="Bg" index="0"]
+visible = false
+modulate = Color( 0.360784, 1, 0.729412, 1 )
+position = Vector2( 7.62939e-06, -40 )
+scale = Vector2( 42.5, 24.25 )
+z_index = -20
+texture = ExtResource( 2 )
+
+[node name="Blue" type="Sprite" parent="Bg" index="1"]
+visible = false
+modulate = Color( 0.682353, 0.843137, 1, 1 )
+position = Vector2( 7.62939e-06, -40 )
+scale = Vector2( 42.5, 24.25 )
+z_index = -20
+texture = ExtResource( 2 )
+
+[node name="Red" type="Sprite" parent="Bg" index="2"]
+visible = false
+modulate = Color( 0.992157, 0.627451, 0.627451, 1 )
+position = Vector2( 7.62939e-06, -40 )
+scale = Vector2( 42.5, 24.25 )
+z_index = -20
+texture = ExtResource( 2 )
+
+[node name="Orange" type="Sprite" parent="Bg" index="3"]
+visible = false
+modulate = Color( 0.992157, 0.87451, 0.627451, 1 )
+position = Vector2( 7.62939e-06, -40 )
+scale = Vector2( 42.5, 24.25 )
+z_index = -20
+texture = ExtResource( 2 )
+
+[node name="Purple" type="Sprite" parent="Bg" index="4"]
+visible = false
+modulate = Color( 0.768627, 0.627451, 0.992157, 1 )
+position = Vector2( 0, -40 )
+scale = Vector2( 42.5, 24.25 )
+z_index = -20
+texture = ExtResource( 2 )
+
+[node name="Light2D2" type="Light2D" parent="." index="6"]
+position = Vector2( 0, -49 )
+texture = ExtResource( 3 )
+energy = 0.3
+shadow_enabled = true
+shadow_gradient_length = 10.0
+shadow_filter = 1
+shadow_filter_smooth = 25.1
+
+[node name="MapAreaCollider" type="Area2D" parent="." index="7"]
+collision_layer = 0
+collision_mask = 2
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="MapAreaCollider" index="0"]
+position = Vector2( 0, -40 )
+shape = SubResource( 3 )
+
+[node name="SpikeCollider" type="Area2D" parent="." index="8"]
+collision_layer = 0
+collision_mask = 8
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="SpikeCollider" index="0"]
+position = Vector2( 0, -40 )
+shape = SubResource( 18 )
+
+[node name="Attack1" type="Area2D" parent="." index="9" groups=["PlayerSword"]]
+collision_layer = 32
+collision_mask = 0
+monitoring = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Attack1" index="0"]
+position = Vector2( 84, -53 )
+shape = SubResource( 4 )
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="Attack1" index="1"]
+root_node = NodePath("../..")
+anims/RESET = SubResource( 5 )
+anims/sword = SubResource( 6 )
+
+[node name="Sprite" type="Sprite" parent="Attack1" index="2"]
+visible = false
+position = Vector2( 0, -64 )
+scale = Vector2( 8, 8 )
+texture = ExtResource( 4 )
+hframes = 6
+
+[node name="CoyoteTimer" type="Timer" parent="." index="10"]
+wait_time = 0.15
+one_shot = true
+
+[node name="DashParticles" type="CPUParticles2D" parent="." index="11"]
+position = Vector2( 16, -48 )
+scale = Vector2( 6, 1 )
+emitting = false
+amount = 18
+lifetime = 1.3
+speed_scale = 4.0
+emission_shape = 2
+emission_rect_extents = Vector2( 2, 48 )
+direction = Vector2( -2, 0 )
+spread = 0.0
+gravity = Vector2( 0, 0 )
+initial_velocity = 35.52
+initial_velocity_random = 0.05
+angular_velocity = 1.0
+scale_amount = 10.0
+scale_amount_curve = SubResource( 7 )
+color_ramp = SubResource( 8 )
+
+[node name="RayCast2D" type="RayCast2D" parent="." index="14"]
+position = Vector2( 0, 3 )
+enabled = true
+cast_to = Vector2( 0, 5 )
+
+[node name="Hurtbox" parent="." index="15" instance=ExtResource( 5 )]
+collision_layer = 16
+
+[node name="CollisionShape2D" parent="Hurtbox" index="0"]
+position = Vector2( 0, -40 )
+shape = SubResource( 30 )
+
+[connection signal="animation_finished" from="AnimationPlayer" to="." method="_on_AnimationPlayer_animation_finished"]
+[connection signal="area_entered" from="MapAreaCollider" to="Camera2D" method="_on_MapAreaCollider_area_entered"]
+[connection signal="area_entered" from="SpikeCollider" to="." method="_on_SpikeCollider_area_entered"]
+[connection signal="timeout" from="CoyoteTimer" to="." method="_on_CoyoteTimer_timeout"]
+[connection signal="body_entered" from="OWPDetect" to="." method="_on_OWPDetect_body_entered"]
+[connection signal="body_exited" from="OWPDetect" to="." method="_on_OWPDetect_body_exited"]
+
+[editable path="Hurtbox"]

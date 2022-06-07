@@ -1,0 +1,136 @@
+[gd_scene load_steps=10 format=2]
+
+[ext_resource path="res://Object/Level/Spike.tscn" type="PackedScene" id=1]
+[ext_resource path="res://assets/movingplatform.png" type="Texture" id=2]
+[ext_resource path="res://tilesets/ts1.tres" type="TileSet" id=3]
+
+[sub_resource type="GDScript" id=2]
+script/source = "extends \"res://Object/Entity/Object.tscn::16\"
+
+export (float, 0, 1000) var frequency = 5
+export (float, -2000, 2000) var amplitude = 150
+export var vertical: bool = true
+var time = 0
+var origin_pos: Vector2
+var down_amp: float
+onready var player = get_parent().get_parent().get_parent().get_node(\"Player\")
+
+func _ready():
+	down_amp = abs(amplitude)
+	origin_pos = position
+
+func _physics_process(delta):
+	time+=delta
+	var movement = cos(time*frequency) * amplitude
+	if vertical:
+		position.y+=movement*delta
+	else:
+		position.x+=movement*delta
+		
+	if position.distance_to(player.position) > 1000 || Global.player_out:
+		_reset_pos()
+	
+func _reset_pos():
+	time=0
+	position = origin_pos
+	if position.y - player.position.y > 100:
+		amplitude = -down_amp
+	elif position.y - player.position.y < 100:
+		amplitude = down_amp
+"
+
+[sub_resource type="Animation" id=17]
+resource_name = "Idle"
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 0 ]
+}
+
+[sub_resource type="Animation" id=18]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ 0 ]
+}
+
+[sub_resource type="RectangleShape2D" id=1]
+extents = Vector2( 128, 44 )
+
+[sub_resource type="Curve" id=7]
+_data = [ Vector2( 0.00429185, 0.351136 ), 0.0, 0.0, 0, 0, Vector2( 0.497854, 1 ), 0.0, 0.0, 0, 0, Vector2( 0.987124, 0.0602273 ), 0.0, 0.0, 0, 0 ]
+
+[sub_resource type="RectangleShape2D" id=19]
+extents = Vector2( 128, 20 )
+
+[node name="MovingPlatform" type="KinematicBody2D"]
+z_index = 1
+script = SubResource( 2 )
+
+[node name="TileMap" type="TileMap" parent="."]
+modulate = Color( 1, 1, 1, 0.843137 )
+scale = Vector2( 8, 8 )
+tile_set = ExtResource( 3 )
+cell_size = Vector2( 8, 8 )
+cell_custom_transform = Transform2D( 128, 0, 0, 128, 0, 0 )
+format = 1
+
+[node name="SpriteSheet" type="Sprite" parent="."]
+position = Vector2( 0, -64 )
+scale = Vector2( 8, 8 )
+texture = ExtResource( 2 )
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+autoplay = "Idle"
+anims/Idle = SubResource( 17 )
+anims/RESET = SubResource( 18 )
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+visible = false
+position = Vector2( 0, -84 )
+shape = SubResource( 1 )
+
+[node name="GroundParticles" type="CPUParticles2D" parent="."]
+position = Vector2( -6, 0 )
+emitting = false
+amount = 3
+lifetime = 2.0
+speed_scale = 6.0
+emission_shape = 2
+emission_rect_extents = Vector2( 24, 5 )
+direction = Vector2( -2, -1 )
+spread = 45.37
+gravity = Vector2( 0, 12 )
+initial_velocity = 35.52
+initial_velocity_random = 0.05
+angular_velocity = 1.0
+angle = 720.0
+angle_random = 1.0
+scale_amount = 8.0
+scale_amount_curve = SubResource( 7 )
+color = Color( 0, 0, 0, 0.372549 )
+
+[node name="Spike" parent="." instance=ExtResource( 1 )]
+position = Vector2( -32, -8 )
+
+[node name="CollisionShape2D" parent="Spike" index="0"]
+visible = false
+position = Vector2( 32, -12 )
+shape = SubResource( 19 )
+
+[editable path="Spike"]

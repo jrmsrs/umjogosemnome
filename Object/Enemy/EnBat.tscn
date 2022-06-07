@@ -1,0 +1,263 @@
+[gd_scene load_steps=12 format=2]
+
+[ext_resource path="res://Object/Entity/Object.tscn" type="PackedScene" id=1]
+[ext_resource path="res://assets/enbat.png" type="Texture" id=2]
+[ext_resource path="res://Object/Helpers/Hitbox.tscn" type="PackedScene" id=3]
+[ext_resource path="res://Object/Helpers/Hurtbox.tscn" type="PackedScene" id=4]
+
+[sub_resource type="GDScript" id=3]
+script/source = "extends \"res://Object/Entity/Object.tscn::16\"
+
+onready var origin_pos = position
+onready var player = get_parent().get_parent().get_node(\"Player\")
+
+var path = []
+var threshold: int = 8
+var nav = null
+var chase: bool = false
+
+func _ready():
+	yield(owner, \"ready\")
+	nav = owner.nav 
+
+func _physics_process(delta):
+	if velocity==Vector2.ZERO:
+		Animation.play(\"idle\")
+	else:
+		Animation.play(\"run\")
+	if $Hitbox/CollisionShape2D.scale < Vector2(1,1):
+		$Hitbox/CollisionShape2D.scale += Vector2(.005,.005)
+		
+	if Global.reload_enemy:
+		chase=false
+		position = origin_pos
+		path = []
+	
+	if player:
+		chase = position.distance_to(player.position) < 400
+	
+	$SpriteSheet.flip_h = velocity.x<0
+	if path.size() > 0:
+		move_to_target()
+	if path.size() > 0:
+		if position.distance_to(path[path.size() -1]) > 600 || position.distance_to(path[0]) < 30:
+			if $Timer.time_left==0:
+				$Timer.start()
+		else:
+			$Timer.stop()
+
+func move_to_target():
+	if global_position.distance_to(path[0]) < threshold:
+		path.remove(0)
+	else:
+		var direction = global_position.direction_to(path[0])
+		velocity = direction * run_speed
+		velocity = move_and_slide(velocity)
+
+func get_target_path(target_pos):
+	if chase:
+		path = nav.get_simple_path(global_position, target_pos, false)
+
+func _on_Timer_timeout():
+	chase=false
+	position = origin_pos
+	path = []
+
+func _on_Hitbox_body_entered(body):
+	if body.is_in_group(\"Player\"):
+		body.life -= 1
+		body.knockback = 900*sign(body.position.x - position.x)
+		if body.is_on_floor() || body._moving_through_diagonal_wall:
+			body.velocity.y = 0
+
+func _on_Hitbox_area_entered(area):
+	$Hitbox/CollisionShape2D.scale = Vector2(.01,.01)
+	var body = area.get_parent()
+	if body.is_in_group(\"Player\"):
+		body.life -= 1
+		body.knockback = 900*sign(body.position.x - position.x) if sign(body.position.x - position.x) else 900
+
+func _on_Hurtbox_area_entered(area):
+	if area.is_in_group(\"PlayerSword\"):
+		queue_free()
+	if area.is_in_group(\"PlayerCarrot\"):
+		queue_free()
+"
+
+[sub_resource type="Animation" id=7]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ 1 ]
+}
+tracks/1/type = "value"
+tracks/1/path = NodePath("SpriteSheet:position")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ Vector2( 0, 0 ) ]
+}
+tracks/2/type = "value"
+tracks/2/path = NodePath("SpriteSheet:scale")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ Vector2( 8, -8 ) ]
+}
+
+[sub_resource type="Animation" id=8]
+resource_name = "idle"
+length = 0.1
+loop = true
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 1 ]
+}
+tracks/1/type = "value"
+tracks/1/path = NodePath("SpriteSheet:position")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ Vector2( 0, 0 ) ]
+}
+tracks/2/type = "value"
+tracks/2/path = NodePath("SpriteSheet:scale")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ Vector2( 8, -8 ) ]
+}
+
+[sub_resource type="Animation" id=9]
+resource_name = "run"
+length = 0.6
+loop = true
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 0.4 ),
+"transitions": PoolRealArray( 1, 1 ),
+"update": 1,
+"values": [ 0, 1 ]
+}
+tracks/1/type = "value"
+tracks/1/path = NodePath("SpriteSheet:scale")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ Vector2( 8, 8 ) ]
+}
+tracks/2/type = "value"
+tracks/2/path = NodePath("SpriteSheet:position")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ Vector2( 0, -64 ) ]
+}
+
+[sub_resource type="CapsuleShape2D" id=4]
+radius = 16.0
+height = 0.0
+
+[sub_resource type="RectangleShape2D" id=5]
+extents = Vector2( 24, 28 )
+
+[sub_resource type="RectangleShape2D" id=6]
+extents = Vector2( 24, 28 )
+
+[node name="EnBat" groups=["Enemy"] instance=ExtResource( 1 )]
+script = SubResource( 3 )
+run_speed = 400
+
+[node name="SpriteSheet" parent="." index="0"]
+scale = Vector2( 8, -8 )
+texture = ExtResource( 2 )
+hframes = 2
+vframes = 1
+frame = 1
+
+[node name="AnimationPlayer" parent="." index="1"]
+autoplay = "idle"
+anims/RESET = SubResource( 7 )
+anims/idle = SubResource( 8 )
+anims/run = SubResource( 9 )
+
+[node name="CollisionShape2D" parent="." index="2"]
+position = Vector2( 0, -24 )
+shape = SubResource( 4 )
+
+[node name="Timer" type="Timer" parent="." index="4"]
+wait_time = 4.0
+
+[node name="Hitbox" parent="." index="5" groups=["Enemy"] instance=ExtResource( 3 )]
+
+[node name="CollisionShape2D" parent="Hitbox" index="0"]
+position = Vector2( 0, -28 )
+shape = SubResource( 5 )
+
+[node name="Hurtbox" parent="." index="6" groups=["Enemy"] instance=ExtResource( 4 )]
+collision_layer = 0
+collision_mask = 32
+monitoring = true
+monitorable = false
+
+[node name="CollisionShape2D" parent="Hurtbox" index="0"]
+position = Vector2( 0, -28 )
+shape = SubResource( 6 )
+
+[connection signal="timeout" from="Timer" to="." method="_on_Timer_timeout"]
+[connection signal="area_entered" from="Hitbox" to="." method="_on_Hitbox_area_entered"]
+[connection signal="area_entered" from="Hurtbox" to="." method="_on_Hurtbox_area_entered"]
+
+[editable path="Hitbox"]
+[editable path="Hurtbox"]

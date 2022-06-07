@@ -1,0 +1,248 @@
+[gd_scene load_steps=10 format=2]
+
+[ext_resource path="res://assets/encow.png" type="Texture" id=1]
+
+[sub_resource type="GDScript" id=9]
+script/source = "extends KinematicBody2D
+
+var dir: int
+var jump: bool
+var velocity: Vector2
+var pscale: int = 8
+var gravity: int = 320 * pscale
+
+export var run_speed: int = 40 * pscale
+export var jump_force: int = -140 * pscale
+
+var current_state := 0
+enum { IDLE, RUN, JUMP, FALL }
+
+onready var Sprite = $PlayerSheet
+onready var Animation = $AnimationPlayer
+onready var GroundParticles = $CPUParticles2D
+
+var timer: float = 0
+
+func _ready(): 
+	pass
+
+func _physics_process(delta):
+	dir = 0 #Input.get_action_strength('game_left') - Input.get_action_strength('game_right')
+	jump = 0 #Input.is_action_just_pressed(\"game_jump\")
+
+	# Implementação de Finite-State Machine para que as ações do objeto seja divididas de forma individual 
+	match current_state:
+		IDLE:
+			_idle_state(delta)
+		RUN:
+			_run_state(delta)
+		JUMP:
+			_jump_state(delta)
+		FALL:
+			_fall_state(delta)
+
+	_limit_vspeed()
+
+# States
+# Idle
+func _idle_state(_delta):
+	Animation.play(\"idle\")
+	velocity.x=0
+	_move_and_slide()
+	_apply_gravity(_delta)
+	# Transitions
+	if dir:
+		current_state = RUN
+	if jump:
+		current_state = JUMP
+	if velocity.y>0 and !is_on_floor():
+		current_state = FALL
+
+# Run
+func _run_state(_delta):
+	Animation.play(\"run\")
+	GroundParticles.emitting = true
+	GroundParticles.direction.x =  2 * dir
+	GroundParticles.position.x = 6 * dir
+	_move_lr()
+	_move_and_slide()
+	_apply_gravity(_delta)
+
+	# Transitions
+	if !dir:
+		GroundParticles.emitting = false
+		current_state = IDLE
+	if jump:
+		GroundParticles.emitting = false
+		current_state = JUMP
+	if velocity.y>0 and !is_on_floor():
+		GroundParticles.emitting = false
+		current_state = FALL
+
+
+# Jump
+func _jump_state(_delta):
+	Animation.play(\"jump\")
+	if is_on_floor():
+		velocity.y = jump_force
+	_move_lr()
+	_move_and_slide()
+	_apply_gravity(_delta)
+	# Transitions
+	if velocity.y >= 0:
+		current_state = FALL
+
+# Fall
+func _fall_state(_delta):
+	Animation.play(\"fall\")
+	_move_lr()
+	_move_and_slide()
+	_apply_gravity(_delta)
+
+	# Transitions
+	if is_on_floor():
+		current_state = IDLE
+
+# Helpers
+# Funções basicas que vão se repetir dependendo da State
+func _apply_gravity(_delta):
+	velocity.y += gravity * _delta
+func _move_and_slide():
+	velocity = move_and_slide(velocity,Vector2(0,-1))
+func _move_lr():
+	velocity.x = run_speed * -dir
+	if (abs(dir)>=1) || abs(dir )> abs(run_speed / pscale):
+		Sprite.flip_h = dir > 0
+func _limit_vspeed():
+	if velocity.y>=1500:
+		velocity.y=1500
+"
+
+[sub_resource type="Animation" id=1]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/path = NodePath("PlayerSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ 1 ]
+}
+
+[sub_resource type="Animation" id=2]
+resource_name = "fall"
+length = 0.1
+tracks/0/type = "value"
+tracks/0/path = NodePath("PlayerSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 2 ]
+}
+
+[sub_resource type="Animation" id=3]
+resource_name = "idle"
+length = 5.0
+loop = true
+tracks/0/type = "value"
+tracks/0/path = NodePath("PlayerSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 2.4, 2.7, 3, 3.7, 4.7 ),
+"transitions": PoolRealArray( 1, 1, 1, 1, 1, 1 ),
+"update": 1,
+"values": [ 0, 1, 2, 3, 2, 3 ]
+}
+
+[sub_resource type="Animation" id=4]
+resource_name = "jump"
+length = 0.1
+tracks/0/type = "value"
+tracks/0/path = NodePath("PlayerSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 2 ]
+}
+
+[sub_resource type="Animation" id=5]
+resource_name = "run"
+length = 0.3
+loop = true
+tracks/0/type = "value"
+tracks/0/path = NodePath("PlayerSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 0.1, 0.2 ),
+"transitions": PoolRealArray( 1, 1.1, 1 ),
+"update": 1,
+"values": [ 0, 1, 2 ]
+}
+
+[sub_resource type="CapsuleShape2D" id=8]
+radius = 16.0
+height = 32.0
+
+[sub_resource type="Curve" id=7]
+_data = [ Vector2( 0.00429185, 0.351136 ), 0.0, 0.0, 0, 0, Vector2( 0.497854, 1 ), 0.0, 0.0, 0, 0, Vector2( 0.987124, 0.0602273 ), 0.0, 0.0, 0, 0 ]
+
+[node name="Piggo" type="KinematicBody2D"]
+script = SubResource( 9 )
+
+[node name="PlayerSheet" type="Sprite" parent="."]
+position = Vector2( 0, -64 )
+scale = Vector2( 8, 8 )
+texture = ExtResource( 1 )
+hframes = 4
+frame = 1
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+anims/RESET = SubResource( 1 )
+anims/fall = SubResource( 2 )
+anims/idle = SubResource( 3 )
+anims/jump = SubResource( 4 )
+anims/run = SubResource( 5 )
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2( 0, -32 )
+shape = SubResource( 8 )
+
+[node name="CPUParticles2D" type="CPUParticles2D" parent="."]
+position = Vector2( -6, 0 )
+emitting = false
+amount = 3
+lifetime = 2.0
+speed_scale = 6.0
+emission_shape = 2
+emission_rect_extents = Vector2( 24, 5 )
+direction = Vector2( -2, -1 )
+spread = 45.37
+gravity = Vector2( 0, 12 )
+initial_velocity = 35.52
+initial_velocity_random = 0.05
+angular_velocity = 1.0
+angle = 720.0
+angle_random = 1.0
+scale_amount = 8.0
+scale_amount_curve = SubResource( 7 )
+color = Color( 0, 0, 0, 0.372549 )

@@ -1,0 +1,414 @@
+[gd_scene load_steps=23 format=2]
+
+[ext_resource path="res://Control.gd" type="Script" id=1]
+[ext_resource path="res://assets/TSVP.png" type="Texture" id=2]
+[ext_resource path="res://assets/zooooo.png" type="Texture" id=3]
+[ext_resource path="res://assets/zooo.png" type="Texture" id=4]
+[ext_resource path="res://assets/zoooo.png" type="Texture" id=5]
+[ext_resource path="res://assets/zoooooo.png" type="Texture" id=6]
+[ext_resource path="res://assets/pix.png" type="Texture" id=7]
+[ext_resource path="res://assets/logo.png" type="Texture" id=8]
+[ext_resource path="res://scenes/Main.tscn" type="PackedScene" id=9]
+[ext_resource path="res://assets/PressStart2P.ttf" type="DynamicFontData" id=10]
+
+[sub_resource type="GDScript" id=2]
+script/source = "extends Node2D
+
+func _ready():
+	var randnum 
+	$AnimationPlayer.play(\"0\" + str(randi() % 4 + 1))
+
+func _on_AnimationPlayer_animation_finished(anim_name):
+	if anim_name==\"01\": $AnimationPlayer.play(\"02\")
+	if anim_name==\"02\": $AnimationPlayer.play(\"03\")
+	if anim_name==\"03\": $AnimationPlayer.play(\"04\")
+	if anim_name==\"04\": $AnimationPlayer.play(\"01\")
+	
+func _on_AnimationPlayer_animation_started(anim_name):
+	$Zoooooo.visible = anim_name==\"01\"
+	$Zooo.visible = anim_name==\"02\"
+	$Zoooo.visible = anim_name==\"03\"
+	$Zooooo.visible = anim_name==\"04\"
+"
+
+[sub_resource type="Animation" id=3]
+resource_name = "01"
+tracks/0/type = "bezier"
+tracks/0/path = NodePath("Zoooooo:position:x")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"points": PoolRealArray( 0, -0.25, 0, 0.25, 0, -610.001, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0, 1 )
+}
+tracks/1/type = "bezier"
+tracks/1/path = NodePath("Zoooooo:position:y")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"points": PoolRealArray( 0, -0.25, 0, 0.25, 0, 0, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0, 1 )
+}
+
+[sub_resource type="Animation" id=4]
+resource_name = "02"
+length = 1.1
+tracks/0/type = "bezier"
+tracks/0/path = NodePath("Zooo:position:x")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"points": PoolRealArray( 0, -0.25, 0, 0.25, 0, -729.601, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0, 1.1 )
+}
+tracks/1/type = "bezier"
+tracks/1/path = NodePath("Zooo:position:y")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"points": PoolRealArray( 0, -0.25, 0, 0.25, 0, 0, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0, 1.1 )
+}
+
+[sub_resource type="Animation" id=5]
+resource_name = "03"
+length = 1.2
+tracks/0/type = "bezier"
+tracks/0/path = NodePath("Zoooo:position:x")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"points": PoolRealArray( 0, -0.25, 0, 0.25, 0, -748.801, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0, 1.2 )
+}
+tracks/1/type = "bezier"
+tracks/1/path = NodePath("Zoooo:position:y")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"points": PoolRealArray( 0, -0.25, 0, 0.25, 0, 0, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0, 1.2 )
+}
+
+[sub_resource type="Animation" id=6]
+resource_name = "04"
+length = 1.5
+tracks/0/type = "bezier"
+tracks/0/path = NodePath("Zooooo:position:x")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"points": PoolRealArray( 0, -0.25, 0, 0.25, 0, -1074.9, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0, 1.5 )
+}
+tracks/1/type = "bezier"
+tracks/1/path = NodePath("Zooooo:position:y")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"points": PoolRealArray( 0, -0.25, 0, 0.25, 0, 0, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0, 1.5 )
+}
+
+[sub_resource type="Animation" id=7]
+length = 0.001
+tracks/0/type = "bezier"
+tracks/0/path = NodePath("Zoooooo:position:x")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"points": PoolRealArray( 0, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0 )
+}
+tracks/1/type = "bezier"
+tracks/1/path = NodePath("Zoooooo:position:y")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"points": PoolRealArray( 0, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0 )
+}
+tracks/2/type = "bezier"
+tracks/2/path = NodePath("Zooo:position:x")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/keys = {
+"points": PoolRealArray( 0, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0 )
+}
+tracks/3/type = "bezier"
+tracks/3/path = NodePath("Zooo:position:y")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/keys = {
+"points": PoolRealArray( 0, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0 )
+}
+tracks/4/type = "bezier"
+tracks/4/path = NodePath("Zoooo:position:x")
+tracks/4/interp = 1
+tracks/4/loop_wrap = true
+tracks/4/imported = false
+tracks/4/enabled = true
+tracks/4/keys = {
+"points": PoolRealArray( 0, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0 )
+}
+tracks/5/type = "bezier"
+tracks/5/path = NodePath("Zoooo:position:y")
+tracks/5/interp = 1
+tracks/5/loop_wrap = true
+tracks/5/imported = false
+tracks/5/enabled = true
+tracks/5/keys = {
+"points": PoolRealArray( 0, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0 )
+}
+tracks/6/type = "bezier"
+tracks/6/path = NodePath("Zooooo:position:x")
+tracks/6/interp = 1
+tracks/6/loop_wrap = true
+tracks/6/imported = false
+tracks/6/enabled = true
+tracks/6/keys = {
+"points": PoolRealArray( 0, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0 )
+}
+tracks/7/type = "bezier"
+tracks/7/path = NodePath("Zooooo:position:y")
+tracks/7/interp = 1
+tracks/7/loop_wrap = true
+tracks/7/imported = false
+tracks/7/enabled = true
+tracks/7/keys = {
+"points": PoolRealArray( 0, -0.25, 0, 0.25, 0 ),
+"times": PoolRealArray( 0 )
+}
+
+[sub_resource type="DynamicFont" id=14]
+size = 8
+font_data = ExtResource( 10 )
+
+[sub_resource type="StyleBoxFlat" id=12]
+bg_color = Color( 0, 0, 0, 0.423529 )
+expand_margin_top = 3.0
+expand_margin_bottom = 2.0
+
+[sub_resource type="StyleBoxFlat" id=13]
+bg_color = Color( 1, 1, 1, 0.6 )
+expand_margin_top = 3.0
+expand_margin_bottom = 2.0
+
+[sub_resource type="StyleBoxLine" id=9]
+color = Color( 1, 1, 1, 1 )
+grow_begin = 0.0
+grow_end = 0.0
+thickness = 2
+vertical = true
+
+[sub_resource type="StyleBoxFlat" id=11]
+bg_color = Color( 0, 0, 0, 0.470588 )
+expand_margin_top = 3.0
+expand_margin_bottom = 2.0
+
+[sub_resource type="StyleBoxFlat" id=8]
+bg_color = Color( 0, 0, 0, 0.686275 )
+expand_margin_top = 3.0
+expand_margin_bottom = 2.0
+anti_aliasing_size = 6.592
+
+[node name="Node" type="Sprite"]
+position = Vector2( 640, 360 )
+scale = Vector2( 3.333, 3.333 )
+texture = ExtResource( 2 )
+region_rect = Rect2( 210, 60, 160, 90 )
+
+[node name="Node2D" type="Node2D" parent="."]
+position = Vector2( -192, -1.52588e-05 )
+script = SubResource( 2 )
+
+[node name="Zooooo" type="Sprite" parent="Node2D"]
+visible = false
+scale = Vector2( 0.797049, 0.797049 )
+texture = ExtResource( 3 )
+offset = Vector2( 915, 0 )
+__meta__ = {
+"_edit_lock_": true
+}
+
+[node name="Zoooo" type="Sprite" parent="Node2D"]
+visible = false
+scale = Vector2( 0.642858, 0.642858 )
+texture = ExtResource( 5 )
+offset = Vector2( 880, 0 )
+__meta__ = {
+"_edit_lock_": true
+}
+
+[node name="Zooo" type="Sprite" parent="Node2D"]
+visible = false
+scale = Vector2( 0.596686, 0.596686 )
+texture = ExtResource( 4 )
+offset = Vector2( 935, 0 )
+__meta__ = {
+"_edit_lock_": true
+}
+
+[node name="Zoooooo" type="Sprite" parent="Node2D"]
+scale = Vector2( 0.530713, 0.530713 )
+texture = ExtResource( 6 )
+offset = Vector2( 938, 0 )
+__meta__ = {
+"_edit_lock_": true
+}
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="Node2D"]
+playback_speed = 0.05
+anims/01 = SubResource( 3 )
+anims/02 = SubResource( 4 )
+anims/03 = SubResource( 5 )
+anims/04 = SubResource( 6 )
+anims/RESET = SubResource( 7 )
+
+[node name="Pix" type="Sprite" parent="Node2D"]
+self_modulate = Color( 0, 0, 0, 0.545098 )
+position = Vector2( 192, 1.52588e-05 )
+scale = Vector2( 2.4, 3.375 )
+texture = ExtResource( 7 )
+__meta__ = {
+"_edit_lock_": true
+}
+
+[node name="Logo" type="Sprite" parent="Node2D"]
+position = Vector2( 189.9, -36 )
+scale = Vector2( 2, 2 )
+texture = ExtResource( 8 )
+
+[node name="Control" type="Control" parent="."]
+anchor_right = 1.0
+anchor_bottom = 1.0
+margin_left = -192.0
+margin_top = -108.0
+margin_right = -192.0
+margin_bottom = -108.0
+script = ExtResource( 1 )
+__meta__ = {
+"_edit_lock_": true
+}
+
+[node name="VBoxContainer" type="VBoxContainer" parent="Control"]
+anchor_left = 0.48
+anchor_top = 1.0
+anchor_right = 0.52
+anchor_bottom = 1.0
+margin_left = -50.5
+margin_top = -101.0
+margin_right = 50.5
+custom_constants/separation = 6
+alignment = 1
+__meta__ = {
+"_edit_lock_": true
+}
+
+[node name="Button" type="Button" parent="Control/VBoxContainer"]
+margin_top = 20.0
+margin_right = 116.0
+margin_bottom = 28.0
+custom_colors/font_color_disabled = Color( 1, 1, 1, 0.231373 )
+custom_colors/font_color_focus = Color( 1, 1, 1, 1 )
+custom_colors/font_color = Color( 1, 1, 1, 1 )
+custom_colors/font_color_hover = Color( 1, 1, 1, 1 )
+custom_colors/font_color_pressed = Color( 0, 0, 0, 1 )
+custom_fonts/font = SubResource( 14 )
+custom_styles/hover = SubResource( 12 )
+custom_styles/pressed = SubResource( 13 )
+custom_styles/focus = SubResource( 9 )
+custom_styles/disabled = SubResource( 11 )
+custom_styles/normal = SubResource( 8 )
+text = "Começar"
+
+[node name="Button3" type="Button" parent="Control/VBoxContainer"]
+margin_top = 34.0
+margin_right = 116.0
+margin_bottom = 42.0
+custom_colors/font_color_disabled = Color( 1, 1, 1, 0.231373 )
+custom_colors/font_color_focus = Color( 1, 1, 1, 1 )
+custom_colors/font_color = Color( 1, 1, 1, 1 )
+custom_colors/font_color_hover = Color( 1, 1, 1, 1 )
+custom_colors/font_color_pressed = Color( 0, 0, 0, 1 )
+custom_fonts/font = SubResource( 14 )
+custom_styles/hover = SubResource( 12 )
+custom_styles/pressed = SubResource( 13 )
+custom_styles/focus = SubResource( 9 )
+custom_styles/disabled = SubResource( 11 )
+custom_styles/normal = SubResource( 8 )
+disabled = true
+enabled_focus_mode = 0
+text = "Configurações"
+
+[node name="Button2" type="Button" parent="Control/VBoxContainer"]
+margin_top = 48.0
+margin_right = 116.0
+margin_bottom = 56.0
+custom_colors/font_color_disabled = Color( 1, 1, 1, 0.231373 )
+custom_colors/font_color_focus = Color( 1, 1, 1, 1 )
+custom_colors/font_color = Color( 1, 1, 1, 1 )
+custom_colors/font_color_hover = Color( 1, 1, 1, 1 )
+custom_colors/font_color_pressed = Color( 0, 0, 0, 1 )
+custom_fonts/font = SubResource( 14 )
+custom_styles/hover = SubResource( 12 )
+custom_styles/pressed = SubResource( 13 )
+custom_styles/focus = SubResource( 9 )
+custom_styles/disabled = SubResource( 11 )
+custom_styles/normal = SubResource( 8 )
+text = "Sair"
+
+[node name="HSeparator" type="HSeparator" parent="Control/VBoxContainer"]
+margin_top = 62.0
+margin_right = 116.0
+margin_bottom = 66.0
+
+[node name="LinkButton" type="LinkButton" parent="Control/VBoxContainer"]
+margin_left = 6.0
+margin_top = 72.0
+margin_right = 110.0
+margin_bottom = 80.0
+size_flags_horizontal = 4
+size_flags_vertical = 4
+custom_fonts/font = SubResource( 14 )
+text = "2022 - jrmsrs"
+underline = 1
+
+[node name="Viewport" type="Viewport" parent="."]
+
+[node name="Main" parent="Viewport" instance=ExtResource( 9 )]
+
+[connection signal="animation_finished" from="Node2D/AnimationPlayer" to="Node2D" method="_on_AnimationPlayer_animation_finished"]
+[connection signal="animation_started" from="Node2D/AnimationPlayer" to="Node2D" method="_on_AnimationPlayer_animation_started"]
+[connection signal="pressed" from="Control/VBoxContainer/Button" to="Control" method="_on_Button_pressed"]
+[connection signal="pressed" from="Control/VBoxContainer/Button2" to="Control" method="_on_Button2_pressed"]
+[connection signal="pressed" from="Control/VBoxContainer/LinkButton" to="Control" method="_on_LinkButton_pressed"]

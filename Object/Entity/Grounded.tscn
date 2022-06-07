@@ -1,0 +1,411 @@
+[gd_scene load_steps=17 format=2]
+
+[ext_resource path="res://assets/player.png" type="Texture" id=1]
+
+[sub_resource type="GDScript" id=16]
+script/source = "extends KinematicBody2D
+
+var action: bool = false
+var action_buffer: bool = action
+var current_action_area: Area2D = null
+var dir: int = 0
+var vdir: int = 0
+var jump: bool = 0
+var velocity: Vector2
+var pscale: int = 8
+var gravity: int = 320 * pscale
+
+var knockback: int = 0
+
+export var run_speed: int = 40 * pscale
+export var jump_force: int = -110 * pscale
+export var life_max: float = 6
+var life: float = life_max
+
+var current_state := 0
+enum { IDLE, RUN, JUMP, FALL, CLIMB, ATTACK, ATTACK2, DASH, HURT, BOOSTJUMP, BOOSTFALL }
+
+onready var Sprite = $SpriteSheet
+onready var Animation = $AnimationPlayer
+onready var GroundParticles = $GroundParticles
+
+var timer: float = 0
+
+func _physics_process(delta):
+	
+	_handle_action_objects()
+	
+	match current_state:
+		IDLE:
+			_idle_state(delta)
+		RUN:
+			_run_state(delta)
+		JUMP:
+			_jump_state(delta)
+		FALL:
+			_fall_state(delta)
+		CLIMB:
+			_climb_state(delta)
+		HURT:
+			_hurt_state(delta)
+	_limit_vspeed()
+	_handle_life()
+	
+# States
+func _idle_state(_delta):
+	Animation.play(\"idle\")
+	velocity.x=0
+	_move_and_slide()
+	_handle_oneway_platforms()
+	_apply_gravity(_delta)
+	
+	if dir:
+		current_state = RUN
+	if jump:
+		current_state = JUMP
+	if velocity.y!=0 and !is_on_floor():
+		current_state = FALL
+	if knockback:
+		current_state = HURT
+
+func _run_state(_delta):
+	Animation.play(\"run\")
+	GroundParticles.emitting = true
+	GroundParticles.direction.x =  2 * dir
+	GroundParticles.position.x = 6 * dir
+	_move_lr()
+	_move_and_slide()
+	_handle_oneway_platforms()
+	_apply_gravity(_delta)
+	
+	if !dir:
+		GroundParticles.emitting = false
+		current_state = IDLE
+	if jump:
+		GroundParticles.emitting = false
+		current_state = JUMP
+	if velocity.y>0 and !is_on_floor():
+		GroundParticles.emitting = false
+		current_state = FALL
+	if knockback:
+		current_state = HURT
+
+func _jump_state(_delta, boost: bool = false):
+	Animation.play(\"idle\")
+	if is_on_floor():
+		velocity.y = jump_force
+	_move_lr(boost)
+	_move_and_slide()
+	_apply_gravity(_delta)
+	
+	if velocity.y >= 0:
+		current_state = FALL
+	if knockback:
+		current_state = HURT
+
+func _fall_state(_delta, boost: bool = false):
+	Animation.play(\"idle\")
+	_move_lr(boost)
+	_move_and_slide()
+	_apply_gravity(_delta)
+	
+	if is_on_floor():
+		current_state = IDLE
+	if knockback:
+		current_state = HURT
+
+func _climb_state(delta):
+	pass
+		
+func _hurt_state(_delta):
+	pass
+
+# Helpers
+# Funções basicas que vão se repetir dependendo da State
+func _apply_gravity(_delta):
+	velocity.y += gravity * _delta
+func _move_and_slide():
+	velocity = move_and_slide(velocity,Vector2(0,-1))
+func _move_lr(boost: bool = false):
+	if !_is_player() && ((abs(dir)>=1) || abs(dir )> abs(run_speed / pscale)):
+		Sprite.flip_h = dir > 0
+	velocity.x = 2*run_speed * -dir if boost else run_speed * -dir
+	if has_node(\"Attack1\"):
+		get_node(\"Attack1\").scale.x = -1 if Sprite.flip_h else 1
+func _move_ud(boost: bool = false):
+	if current_action_area: 
+		position.x = current_action_area.position.x
+		velocity.y = run_speed * -vdir
+	else:
+		velocity.y = -run_speed*2
+
+func _limit_vspeed():
+	if velocity.y>=1500:
+		velocity.y=1500
+func _handle_action_objects():
+	if (action || action_buffer) && current_action_area:
+		if current_action_area.is_in_group(\"VStair\"):
+			GroundParticles.emitting = false
+			current_state = CLIMB
+func _handle_oneway_platforms():
+	pass
+func _handle_life():
+	if life<=0:
+		queue_free()
+func _is_player():
+	return false
+
+func _on_ActionArea_area_entered(area):
+	current_action_area = area
+func _on_ActionArea_area_exited(area):
+	current_action_area = null
+
+func _on_ActionBuffer_timeout():
+	action_buffer = false
+"
+
+[sub_resource type="Animation" id=1]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ 1 ]
+}
+
+[sub_resource type="Animation" id=9]
+resource_name = "attack"
+length = 0.6
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 0.1, 0.2, 0.3 ),
+"transitions": PoolRealArray( 1, 1, 1, 1 ),
+"update": 1,
+"values": [ 8, 9, 10, 11 ]
+}
+
+[sub_resource type="Animation" id=18]
+resource_name = "climb"
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 7 ]
+}
+
+[sub_resource type="Animation" id=20]
+resource_name = "climb1"
+length = 0.533
+loop = true
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 0.13, 0.26, 0.39 ),
+"transitions": PoolRealArray( 1, 1, 1, 1 ),
+"update": 1,
+"values": [ 12, 13, 14, 15 ]
+}
+
+[sub_resource type="Animation" id=14]
+resource_name = "dash"
+length = 0.15
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 6 ]
+}
+
+[sub_resource type="Animation" id=15]
+resource_name = "dashup"
+length = 0.15
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 7 ]
+}
+
+[sub_resource type="Animation" id=2]
+resource_name = "fall"
+length = 0.1
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 5 ]
+}
+
+[sub_resource type="Animation" id=3]
+resource_name = "idle"
+length = 0.1
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 0 ]
+}
+
+[sub_resource type="Animation" id=4]
+resource_name = "jump"
+length = 0.1
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 4 ]
+}
+
+[sub_resource type="Animation" id=5]
+resource_name = "run"
+length = 0.3
+loop = true
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 0.1, 0.2 ),
+"transitions": PoolRealArray( 1, 1, 1 ),
+"update": 1,
+"values": [ 1, 2, 3 ]
+}
+
+[sub_resource type="CapsuleShape2D" id=8]
+radius = 16.0
+height = 34.0
+
+[sub_resource type="Curve" id=7]
+_data = [ Vector2( 0.00429185, 0.351136 ), 0.0, 0.0, 0, 0, Vector2( 0.497854, 1 ), 0.0, 0.0, 0, 0, Vector2( 0.987124, 0.0602273 ), 0.0, 0.0, 0, 0 ]
+
+[sub_resource type="RectangleShape2D" id=17]
+extents = Vector2( 24, 32 )
+
+[sub_resource type="RayShape2D" id=19]
+length = 56.0
+
+[node name="Grounded" type="KinematicBody2D"]
+z_index = 1
+collision_layer = 129
+collision_mask = 129
+script = SubResource( 16 )
+
+[node name="SpriteSheet" type="Sprite" parent="."]
+position = Vector2( 0, -64 )
+scale = Vector2( 8, 8 )
+texture = ExtResource( 1 )
+hframes = 6
+vframes = 4
+frame = 1
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+anims/RESET = SubResource( 1 )
+anims/attack = SubResource( 9 )
+anims/climb = SubResource( 18 )
+anims/climb1 = SubResource( 20 )
+anims/dash = SubResource( 14 )
+anims/dashup = SubResource( 15 )
+anims/fall = SubResource( 2 )
+anims/idle = SubResource( 3 )
+anims/jump = SubResource( 4 )
+anims/run = SubResource( 5 )
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2( 0, -33 )
+shape = SubResource( 8 )
+
+[node name="GroundParticles" type="CPUParticles2D" parent="."]
+position = Vector2( -6, 0 )
+emitting = false
+amount = 3
+lifetime = 2.0
+speed_scale = 6.0
+emission_shape = 2
+emission_rect_extents = Vector2( 24, 5 )
+direction = Vector2( -2, -1 )
+spread = 45.37
+gravity = Vector2( 0, 12 )
+initial_velocity = 35.52
+initial_velocity_random = 0.05
+angular_velocity = 1.0
+angle = 720.0
+angle_random = 1.0
+scale_amount = 8.0
+scale_amount_curve = SubResource( 7 )
+color = Color( 0, 0, 0, 0.372549 )
+
+[node name="ActionArea" type="Area2D" parent="."]
+collision_layer = 0
+collision_mask = 8
+monitorable = false
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="ActionArea"]
+position = Vector2( 0, -32 )
+shape = SubResource( 17 )
+
+[node name="ActionBuffer" type="Timer" parent="ActionArea"]
+wait_time = 0.25
+one_shot = true
+
+[node name="OWPDetect" type="Area2D" parent="."]
+collision_mask = 8
+
+[node name="Node2D" type="CollisionShape2D" parent="OWPDetect"]
+shape = SubResource( 19 )
+
+[connection signal="area_entered" from="ActionArea" to="." method="_on_ActionArea_area_entered"]
+[connection signal="area_exited" from="ActionArea" to="." method="_on_ActionArea_area_exited"]
+[connection signal="timeout" from="ActionArea/ActionBuffer" to="." method="_on_ActionBuffer_timeout"]
