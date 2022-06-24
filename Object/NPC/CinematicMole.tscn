@@ -1,31 +1,45 @@
-[gd_scene load_steps=13 format=2]
+[gd_scene load_steps=16 format=2]
 
 [ext_resource path="res://Object/Entity/Grounded.tscn" type="PackedScene" id=1]
 
-[sub_resource type="GDScript" id=12]
+[sub_resource type="GDScript" id=2]
 script/source = "extends \"res://Object/Entity/Grounded.tscn::16\"
 
-var origin = position
+var ready = false
+onready var player = get_parent().get_parent().get_node(\"Player\")
 
-func _on_IdleTimer_timeout():
-	var x = rand_range(0,1)
-	if x>.5:
-		dir = -1 if position.x <= origin.x+300 else 1
-	else:
-		dir = 1 if position.x >= origin.x-300 else -1
-	$WalkTimer.wait_time = rand_range(.2,1.2)
-	$WalkTimer.start()
+func _physics_process(delta):
+	if ready: 
+		current_state = Consts.RUN
 
-func _on_WalkTimer_timeout():
-	dir = 0
-	$IdleTimer.wait_time = rand_range(4,6)
-	$IdleTimer.start()
+func _run_state(delta):
+	Animation.play(\"run\")
+	velocity.x = player.velocity.x-20
+	_move_and_slide()
+	_apply_gravity(delta)
+	
+	if is_on_wall():
+		ready=false
+		current_state = Consts.JUMP
+
+func _jump_state(_delta, boost: bool = false):
+	Animation.play(\"jump\")
+	velocity.y += jump_force
+	_move_lr(boost)
+	_move_and_slide()
+	_apply_gravity(_delta)
+	if velocity.y<=-5000:
+		current_state = Consts.RUN
+	if abs(position.y - player.position.y) >= 700:
+		position.x = player.position.x
 "
 
-[sub_resource type="StreamTexture" id=11]
-load_path = "res://.import/encow.png-57eb5c61530d2fceb401662bc0c7b1fb.stex"
+[sub_resource type="ShaderMaterial" id=22]
 
-[sub_resource type="Animation" id=3]
+[sub_resource type="StreamTexture" id=23]
+load_path = "res://.import/moler.png-51d0409a52ac4d21824e7b7cacd00780.stex"
+
+[sub_resource type="Animation" id=12]
 length = 0.001
 tracks/0/type = "value"
 tracks/0/path = NodePath("SpriteSheet:frame")
@@ -40,7 +54,7 @@ tracks/0/keys = {
 "values": [ 1 ]
 }
 
-[sub_resource type="Animation" id=4]
+[sub_resource type="Animation" id=13]
 resource_name = "attack"
 length = 0.6
 tracks/0/type = "value"
@@ -56,7 +70,39 @@ tracks/0/keys = {
 "values": [ 8, 9, 10, 11 ]
 }
 
-[sub_resource type="Animation" id=5]
+[sub_resource type="Animation" id=14]
+resource_name = "climb"
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 7 ]
+}
+
+[sub_resource type="Animation" id=15]
+resource_name = "climb1"
+length = 0.533
+loop = true
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 0.13, 0.26, 0.39 ),
+"transitions": PoolRealArray( 1, 1, 1, 1 ),
+"update": 1,
+"values": [ 12, 13, 14, 15 ]
+}
+
+[sub_resource type="Animation" id=16]
 resource_name = "dash"
 length = 0.15
 tracks/0/type = "value"
@@ -72,7 +118,7 @@ tracks/0/keys = {
 "values": [ 6 ]
 }
 
-[sub_resource type="Animation" id=6]
+[sub_resource type="Animation" id=17]
 resource_name = "dashup"
 length = 0.15
 tracks/0/type = "value"
@@ -88,7 +134,7 @@ tracks/0/keys = {
 "values": [ 7 ]
 }
 
-[sub_resource type="Animation" id=7]
+[sub_resource type="Animation" id=18]
 resource_name = "fall"
 length = 0.1
 tracks/0/type = "value"
@@ -104,7 +150,7 @@ tracks/0/keys = {
 "values": [ 5 ]
 }
 
-[sub_resource type="Animation" id=8]
+[sub_resource type="Animation" id=19]
 resource_name = "idle"
 length = 5.0
 tracks/0/type = "value"
@@ -120,7 +166,7 @@ tracks/0/keys = {
 "values": [ 0, 1, 2, 3, 2, 3 ]
 }
 
-[sub_resource type="Animation" id=9]
+[sub_resource type="Animation" id=20]
 resource_name = "jump"
 length = 0.1
 tracks/0/type = "value"
@@ -133,12 +179,12 @@ tracks/0/keys = {
 "times": PoolRealArray( 0 ),
 "transitions": PoolRealArray( 1 ),
 "update": 1,
-"values": [ 4 ]
+"values": [ 8 ]
 }
 
-[sub_resource type="Animation" id=10]
+[sub_resource type="Animation" id=21]
 resource_name = "run"
-length = 0.6
+length = 1.2
 loop = true
 tracks/0/type = "value"
 tracks/0/path = NodePath("SpriteSheet:frame")
@@ -147,47 +193,39 @@ tracks/0/loop_wrap = true
 tracks/0/imported = false
 tracks/0/enabled = true
 tracks/0/keys = {
-"times": PoolRealArray( 0, 0.2, 0.4 ),
-"transitions": PoolRealArray( 1, 1, 1 ),
+"times": PoolRealArray( 0, 0.2, 0.4, 0.6, 0.8, 1 ),
+"transitions": PoolRealArray( 1, 1, 1, 1, 1, 1 ),
 "update": 1,
-"values": [ 4, 5, 6 ]
+"values": [ 0, 1, 2, 3, 4, 5 ]
 }
 
 [sub_resource type="RectangleShape2D" id=1]
 extents = Vector2( 24, 36 )
 
-[node name="Piggo" instance=ExtResource( 1 )]
+[node name="CinematicMole" instance=ExtResource( 1 )]
+scale = Vector2( -1, 1 )
 collision_layer = 0
 collision_mask = 4
-script = SubResource( 12 )
+script = SubResource( 2 )
+run_speed = 120
 
 [node name="SpriteSheet" parent="." index="0"]
-texture = SubResource( 11 )
-hframes = 4
-vframes = 2
+material = SubResource( 22 )
+texture = SubResource( 23 )
+vframes = 3
 
 [node name="AnimationPlayer" parent="." index="1"]
-anims/RESET = SubResource( 3 )
-anims/attack = SubResource( 4 )
-anims/dash = SubResource( 5 )
-anims/dashup = SubResource( 6 )
-anims/fall = SubResource( 7 )
-anims/idle = SubResource( 8 )
-anims/jump = SubResource( 9 )
-anims/run = SubResource( 10 )
+anims/RESET = SubResource( 12 )
+anims/attack = SubResource( 13 )
+anims/climb = SubResource( 14 )
+anims/climb1 = SubResource( 15 )
+anims/dash = SubResource( 16 )
+anims/dashup = SubResource( 17 )
+anims/fall = SubResource( 18 )
+anims/idle = SubResource( 19 )
+anims/jump = SubResource( 20 )
+anims/run = SubResource( 21 )
 
 [node name="CollisionShape2D" parent="." index="2"]
 position = Vector2( 0, -36 )
 shape = SubResource( 1 )
-
-[node name="IdleTimer" type="Timer" parent="." index="4"]
-wait_time = 5.0
-one_shot = true
-autostart = true
-
-[node name="WalkTimer" type="Timer" parent="." index="5"]
-wait_time = 0.75
-one_shot = true
-
-[connection signal="timeout" from="IdleTimer" to="." method="_on_IdleTimer_timeout"]
-[connection signal="timeout" from="WalkTimer" to="." method="_on_WalkTimer_timeout"]

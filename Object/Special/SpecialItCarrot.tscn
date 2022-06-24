@@ -1,0 +1,135 @@
+[gd_scene load_steps=10 format=2]
+
+[ext_resource path="res://Object/Item/ItCarrot.tscn" type="PackedScene" id=1]
+
+[sub_resource type="GDScript" id=1]
+script/source = "extends \"res://Object/Item/ItCarrot.tscn::1\"
+
+export var condition: int = 2
+
+func _ready():
+	$SpriteSheet.material = $SpriteSheet.material.duplicate()
+
+func _physics_process(delta):
+	if Global.carrot >= condition:
+		current_state = Consts.GROUND
+"
+
+[sub_resource type="Shader" id=2]
+code = "shader_type canvas_item;
+
+render_mode blend_mix;
+uniform vec4 modulate: hint_color;
+
+void fragment() {
+	COLOR = vec4(modulate.rgb, texture(TEXTURE, UV).a * modulate.a);
+}
+"
+
+[sub_resource type="ShaderMaterial" id=3]
+shader = SubResource( 2 )
+shader_param/modulate = Color( 0, 0, 0, 1 )
+
+[sub_resource type="StreamTexture" id=4]
+load_path = "res://.import/carrot-sheet.png-108fa8dc0da957e32c229ce3cebc0d0c.stex"
+
+[sub_resource type="Animation" id=5]
+resource_name = "Idle"
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 0 ]
+}
+
+[sub_resource type="Animation" id=6]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ 0 ]
+}
+tracks/1/type = "value"
+tracks/1/path = NodePath("SpriteSheet:material:shader_param/modulate")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ Color( 0, 0, 0, 1 ) ]
+}
+
+[sub_resource type="Animation" id=7]
+resource_name = "active"
+length = 3.0
+loop = true
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 0 ]
+}
+tracks/1/type = "value"
+tracks/1/path = NodePath("SpriteSheet:material:shader_param/modulate")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"times": PoolRealArray( 1.9, 2.5, 3 ),
+"transitions": PoolRealArray( 1, 1, 1 ),
+"update": 0,
+"values": [ Color( 0, 0, 0, 1 ), Color( 1, 1, 1, 1 ), Color( 0, 0, 0, 1 ) ]
+}
+
+[sub_resource type="Animation" id=8]
+resource_name = "inactive"
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 3 ]
+}
+
+[node name="SpecialItCarrot" instance=ExtResource( 1 )]
+script = SubResource( 1 )
+
+[node name="SpriteSheet" parent="." index="0"]
+material = SubResource( 3 )
+texture = SubResource( 4 )
+
+[node name="AnimationPlayer" parent="." index="1"]
+anims/Idle = SubResource( 5 )
+anims/RESET = SubResource( 6 )
+anims/active = SubResource( 7 )
+anims/inactive = SubResource( 8 )
+
+[editable path="Hurtbox"]

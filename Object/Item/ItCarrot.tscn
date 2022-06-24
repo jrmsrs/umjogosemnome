@@ -1,0 +1,150 @@
+[gd_scene load_steps=10 format=2]
+
+[ext_resource path="res://Object/Entity/Object.tscn" type="PackedScene" id=1]
+[ext_resource path="res://assets/carrot-sheet.png" type="Texture" id=2]
+[ext_resource path="res://Object/Helpers/Hurtbox.tscn" type="PackedScene" id=3]
+
+[sub_resource type="GDScript" id=1]
+script/source = "extends \"res://Object/Entity/Object.tscn::16\"
+
+export var active: bool = true
+export var autodestroy: bool = true
+
+func _ready():
+	if active:
+		current_state = Consts.GROUND
+		position.y -= 8* (randi()%3)
+	else:
+		current_state = Consts.INACTIVE
+		position.y -= 8
+
+func _physics_process(delta):
+	match current_state:
+		Consts.INACTIVE:
+			$AnimationPlayer.play(\"inactive\")
+			$CollisionShape2D.disabled = true
+			$Hurtbox/CollisionShape2D.disabled = true
+		Consts.GROUND:
+			$AnimationPlayer.play(\"active\")
+			$CollisionShape2D.disabled = true
+			$Hurtbox/CollisionShape2D.disabled = false
+		Consts.ACTIVE:
+			if velocity.y<0:
+				$CollisionShape2D.disabled = false
+			$AnimationPlayer.play(\"active\")
+			$Hurtbox/CollisionShape2D.disabled = true
+			_move_and_slide()
+			if !is_on_floor():
+				_apply_gravity(delta)
+			else:
+				current_state = Consts.GROUND
+	_limit_vspeed()
+	if !autodestroy:
+		if get_node_or_null (\"Timer\"):
+			get_node(\"Timer\").queue_free()
+
+func _on_Hurtbox_area_entered(area):
+	if area.is_in_group(\"PlayerSword\"):
+		position.y-= ( randi()%10 )+50
+		velocity.y=-400
+		current_state = Consts.ACTIVE
+
+func _on_Hurtbox_body_entered(body):
+	if body.is_in_group(\"Player\"):
+		Global.carrot += 1
+		queue_free()
+
+func _on_Timer_timeout():
+	queue_free()
+"
+
+[sub_resource type="Animation" id=2]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ 0 ]
+}
+
+[sub_resource type="Animation" id=4]
+resource_name = "active"
+loop = true
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 0 ]
+}
+
+[sub_resource type="Animation" id=3]
+resource_name = "inactive"
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 3 ]
+}
+
+[sub_resource type="CapsuleShape2D" id=7]
+radius = 8.0
+height = 0.0
+
+[sub_resource type="RectangleShape2D" id=6]
+extents = Vector2( 16, 16 )
+
+[node name="ItCarrot" instance=ExtResource( 1 )]
+collision_layer = 0
+script = SubResource( 1 )
+
+[node name="SpriteSheet" parent="." index="0"]
+position = Vector2( 0, 12 )
+texture = ExtResource( 2 )
+hframes = 4
+vframes = 1
+
+[node name="AnimationPlayer" parent="." index="1"]
+autoplay = "inactive"
+anims/RESET = SubResource( 2 )
+anims/active = SubResource( 4 )
+anims/inactive = SubResource( 3 )
+
+[node name="CollisionShape2D" parent="." index="2"]
+position = Vector2( 0, 40 )
+shape = SubResource( 7 )
+
+[node name="Hurtbox" parent="." index="4" instance=ExtResource( 3 )]
+position = Vector2( 0, 8 )
+collision_mask = 96
+
+[node name="CollisionShape2D" parent="Hurtbox" index="0"]
+position = Vector2( 0, 24 )
+shape = SubResource( 6 )
+
+[node name="Timer" type="Timer" parent="." index="5"]
+wait_time = 10.0
+autostart = true
+
+[connection signal="area_entered" from="Hurtbox" to="." method="_on_Hurtbox_area_entered"]
+[connection signal="body_entered" from="Hurtbox" to="." method="_on_Hurtbox_body_entered"]
+[connection signal="timeout" from="Timer" to="." method="_on_Timer_timeout"]
+
+[editable path="Hurtbox"]

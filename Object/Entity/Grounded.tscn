@@ -1,4 +1,4 @@
-[gd_scene load_steps=17 format=2]
+[gd_scene load_steps=18 format=2]
 
 [ext_resource path="res://assets/player.png" type="Texture" id=1]
 
@@ -10,20 +10,19 @@ var action_buffer: bool = action
 var current_action_area: Area2D = null
 var dir: int = 0
 var vdir: int = 0
-var jump: bool = 0
-var velocity: Vector2
+var jump: bool = false
+export var velocity: Vector2
 var pscale: int = 8
 var gravity: int = 320 * pscale
 
 var knockback: int = 0
 
-export var run_speed: int = 40 * pscale
+export var run_speed: int = 40 *8
 export var jump_force: int = -110 * pscale
-export var life_max: float = 6
+export var life_max: float = 2
 var life: float = life_max
 
-var current_state := 0
-enum { IDLE, RUN, JUMP, FALL, CLIMB, ATTACK, ATTACK2, DASH, HURT, BOOSTJUMP, BOOSTFALL }
+var current_state := Consts.IDLE
 
 onready var Sprite = $SpriteSheet
 onready var Animation = $AnimationPlayer
@@ -31,22 +30,25 @@ onready var GroundParticles = $GroundParticles
 
 var timer: float = 0
 
+func _ready():
+	$SpriteSheet.material = $SpriteSheet.material.duplicate()
+
 func _physics_process(delta):
 	
 	_handle_action_objects()
 	
 	match current_state:
-		IDLE:
+		Consts.IDLE:
 			_idle_state(delta)
-		RUN:
+		Consts.RUN:
 			_run_state(delta)
-		JUMP:
+		Consts.JUMP:
 			_jump_state(delta)
-		FALL:
+		Consts.FALL:
 			_fall_state(delta)
-		CLIMB:
+		Consts.CLIMB:
 			_climb_state(delta)
-		HURT:
+		Consts.HURT:
 			_hurt_state(delta)
 	_limit_vspeed()
 	_handle_life()
@@ -60,13 +62,13 @@ func _idle_state(_delta):
 	_apply_gravity(_delta)
 	
 	if dir:
-		current_state = RUN
+		current_state = Consts.RUN
 	if jump:
-		current_state = JUMP
+		current_state = Consts.JUMP
 	if velocity.y!=0 and !is_on_floor():
-		current_state = FALL
+		current_state = Consts.FALL
 	if knockback:
-		current_state = HURT
+		current_state = Consts.HURT
 
 func _run_state(_delta):
 	Animation.play(\"run\")
@@ -80,15 +82,15 @@ func _run_state(_delta):
 	
 	if !dir:
 		GroundParticles.emitting = false
-		current_state = IDLE
+		current_state = Consts.IDLE
 	if jump:
 		GroundParticles.emitting = false
-		current_state = JUMP
+		current_state = Consts.JUMP
 	if velocity.y>0 and !is_on_floor():
 		GroundParticles.emitting = false
-		current_state = FALL
+		current_state = Consts.FALL
 	if knockback:
-		current_state = HURT
+		current_state = Consts.HURT
 
 func _jump_state(_delta, boost: bool = false):
 	Animation.play(\"idle\")
@@ -99,9 +101,9 @@ func _jump_state(_delta, boost: bool = false):
 	_apply_gravity(_delta)
 	
 	if velocity.y >= 0:
-		current_state = FALL
+		current_state = Consts.FALL
 	if knockback:
-		current_state = HURT
+		current_state = Consts.HURT
 
 func _fall_state(_delta, boost: bool = false):
 	Animation.play(\"idle\")
@@ -110,9 +112,9 @@ func _fall_state(_delta, boost: bool = false):
 	_apply_gravity(_delta)
 	
 	if is_on_floor():
-		current_state = IDLE
+		current_state = Consts.IDLE
 	if knockback:
-		current_state = HURT
+		current_state = Consts.HURT
 
 func _climb_state(delta):
 	pass
@@ -146,7 +148,7 @@ func _handle_action_objects():
 	if (action || action_buffer) && current_action_area:
 		if current_action_area.is_in_group(\"VStair\"):
 			GroundParticles.emitting = false
-			current_state = CLIMB
+			current_state = Consts.CLIMB
 func _handle_oneway_platforms():
 	pass
 func _handle_life():
@@ -164,6 +166,8 @@ func _on_ActionBuffer_timeout():
 	action_buffer = false
 "
 
+[sub_resource type="ShaderMaterial" id=21]
+
 [sub_resource type="Animation" id=1]
 length = 0.001
 tracks/0/type = "value"
@@ -177,6 +181,18 @@ tracks/0/keys = {
 "transitions": PoolRealArray( 1 ),
 "update": 0,
 "values": [ 1 ]
+}
+tracks/1/type = "value"
+tracks/1/path = NodePath("SpriteSheet:material:shader_param/modulate")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ Color( 0, 0, 0, 1 ) ]
 }
 
 [sub_resource type="Animation" id=9]
@@ -309,7 +325,7 @@ tracks/0/keys = {
 
 [sub_resource type="Animation" id=5]
 resource_name = "run"
-length = 0.3
+length = 0.6
 loop = true
 tracks/0/type = "value"
 tracks/0/path = NodePath("SpriteSheet:frame")
@@ -318,15 +334,15 @@ tracks/0/loop_wrap = true
 tracks/0/imported = false
 tracks/0/enabled = true
 tracks/0/keys = {
-"times": PoolRealArray( 0, 0.1, 0.2 ),
-"transitions": PoolRealArray( 1, 1, 1 ),
+"times": PoolRealArray( 0, 0.1, 0.2, 0.3, 0.4, 0.5 ),
+"transitions": PoolRealArray( 1, 1, 1, 1, 1, 1 ),
 "update": 1,
-"values": [ 1, 2, 3 ]
+"values": [ 1, 2, 3, 4, 5, 6 ]
 }
 
 [sub_resource type="CapsuleShape2D" id=8]
 radius = 16.0
-height = 34.0
+height = 0.0
 
 [sub_resource type="Curve" id=7]
 _data = [ Vector2( 0.00429185, 0.351136 ), 0.0, 0.0, 0, 0, Vector2( 0.497854, 1 ), 0.0, 0.0, 0, 0, Vector2( 0.987124, 0.0602273 ), 0.0, 0.0, 0, 0 ]
@@ -344,6 +360,7 @@ collision_mask = 129
 script = SubResource( 16 )
 
 [node name="SpriteSheet" type="Sprite" parent="."]
+material = SubResource( 21 )
 position = Vector2( 0, -64 )
 scale = Vector2( 8, 8 )
 texture = ExtResource( 1 )
@@ -387,6 +404,28 @@ scale_amount = 8.0
 scale_amount_curve = SubResource( 7 )
 color = Color( 0, 0, 0, 0.372549 )
 
+[node name="GroundParticles2" type="CPUParticles2D" parent="."]
+position = Vector2( -6, 0 )
+emitting = false
+amount = 6
+lifetime = 2.0
+one_shot = true
+speed_scale = 6.0
+explosiveness = 1.0
+emission_shape = 2
+emission_rect_extents = Vector2( 24, 5 )
+direction = Vector2( 0, -1 )
+spread = 45.37
+gravity = Vector2( 0, 12 )
+initial_velocity = 35.52
+initial_velocity_random = 0.05
+angular_velocity = 1.0
+angle = 720.0
+angle_random = 1.0
+scale_amount = 8.0
+scale_amount_curve = SubResource( 7 )
+color = Color( 0, 0, 0, 0.372549 )
+
 [node name="ActionArea" type="Area2D" parent="."]
 collision_layer = 0
 collision_mask = 8
@@ -403,7 +442,7 @@ one_shot = true
 [node name="OWPDetect" type="Area2D" parent="."]
 collision_mask = 8
 
-[node name="Node2D" type="CollisionShape2D" parent="OWPDetect"]
+[node name="CollisionShape2D" type="CollisionShape2D" parent="OWPDetect"]
 shape = SubResource( 19 )
 
 [connection signal="area_entered" from="ActionArea" to="." method="_on_ActionArea_area_entered"]

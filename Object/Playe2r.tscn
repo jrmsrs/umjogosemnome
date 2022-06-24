@@ -1,9 +1,8 @@
-[gd_scene load_steps=43 format=2]
+[gd_scene load_steps=41 format=2]
 
 [ext_resource path="res://Object/Entity/Grounded.tscn" type="PackedScene" id=1]
 [ext_resource path="res://assets/pix.png" type="Texture" id=2]
 [ext_resource path="res://assets/18861-radial_gradient.png" type="Texture" id=3]
-[ext_resource path="res://assets/playerswd2.png" type="Texture" id=4]
 [ext_resource path="res://Object/Helpers/Hurtbox.tscn" type="PackedScene" id=5]
 [ext_resource path="res://Object/Camera2D.tscn" type="PackedScene" id=6]
 [ext_resource path="res://assets/player.png" type="Texture" id=7]
@@ -15,9 +14,11 @@ script/source = "extends \"res://Object/Entity/Grounded.tscn::16\"
 
 const PROJECTILE := preload(\"res://Object/Carrot.tscn\")
 
+var dash_UNLOCKED: bool = false
 var dash: bool
 var dash_counter: int = 0
 
+var djump_UNLOCKED: bool = false
 var djump: bool = false
 var jump_counter: int = 0
 var can_jump: bool = true
@@ -34,19 +35,19 @@ onready var DashParticles = $DashParticles
 
 func _ready(): 
 	Global.soft_checkpoint = position
-	#life_max = Global.player_life_max
-	#life = life_max
+	life_max = Global.player_life_max
+	life = life_max
 	$Attack1/Sprite.visible = false
 	$Attack1/CollisionShape2D.disabled = true
 
 func _physics_process(delta):
-	#Global.player_life = life
+	print(current_state)
+	Global.player_life = life
 	dir = Input.get_action_strength('game_left') - Input.get_action_strength('game_right')
 	vdir = Input.get_action_strength('game_up') - Input.get_action_strength('game_down')
 	jump = Input.is_action_just_pressed(\"game_jump\")
 	dash = Input.is_action_just_pressed(\"game_dash\") 
 	action = Input.is_action_just_pressed(\"game_action\")
-	
 	if action: 
 		action_buffer = true
 	if action_buffer: 
@@ -58,12 +59,14 @@ func _physics_process(delta):
 	
 	_moving_through_diagonal_wall = is_on_wall() && abs(velocity.x)>1
 	
+	scale.x = -1 if get_local_mouse_position().x<0 else 1
+	
 	if is_on_floor() || _moving_through_diagonal_wall:
 		Global.player_out = false
 		$CoyoteTimer.start()
 		can_jump = true
-		jump_counter = 1 if Global.djump_UNLOCKED else 0
-		dash_counter = 1 if Global.dash_UNLOCKED else 0
+		jump_counter = 1 if djump_UNLOCKED else 0
+		dash_counter = 1 if dash_UNLOCKED else 0
 	match current_state:
 		Consts.ATTACK:
 			_attack1_state(delta)
@@ -75,11 +78,6 @@ func _physics_process(delta):
 			_jump_state(delta, true)
 		Consts.BOOSTFALL:
 			_fall_state(delta, true)
-			
-		Consts.PRESENTATION:
-			_cuts_presentation(delta)
-		Consts.CINFALL:
-			_cinematic_fall_state(delta)
 	_limit_vspeed()
 	_handle_action_objects()
 	
@@ -88,7 +86,6 @@ func _idle_state(_delta):
 	Animation.play(\"idle\")
 	_move_and_slide()
 	_apply_gravity(_delta)
-	_flip_player()
 	
 	if owp && Input.is_action_just_pressed(\"game_down\"):
 		owp.get_node(\"CollisionShape2D\").disabled = true
@@ -120,7 +117,6 @@ func _run_state(_delta):
 	_move_lr()
 	_move_and_slide()
 	_apply_gravity(_delta)
-	_flip_player()
 	
 	if !dir:
 		GroundParticles.emitting = false
@@ -146,18 +142,22 @@ func _run_state(_delta):
 
 func _jump_state(_delta, boost: bool = false):
 	if boost && abs(dir) < 0.5: current_state = Consts.JUMP
-	if Animation.current_animation != \"jump\": _generate_jump_particles()
 	Animation.play(\"jump\")
 	boost = boost && abs(dir) > 0.5
 	GroundParticles.emitting = false
 	DashParticles.emitting = boost
-	
-	_handle_jump()
-	
+	if is_on_floor() || can_jump:
+		can_jump = false
+		velocity.y = jump_force
+	elif Input.is_action_just_released(\"game_jump\") and velocity.y < jump_force*0.1:
+		velocity.y = jump_force * 0.1
+	elif djump: 
+		velocity.y = jump_force
+		djump = false
+		jump_counter-=1
 	_move_lr(boost)
 	_move_and_slide()
 	_apply_gravity(_delta)
-	_flip_player()
 	
 	if _moving_through_diagonal_wall:
 		current_state = Consts.RUN
@@ -178,7 +178,6 @@ func _fall_state(_delta, boost: bool = false):
 	_move_lr(boost)
 	_move_and_slide()
 	_apply_gravity(_delta)
-	_flip_player()
 	
 	if _moving_through_diagonal_wall:
 		current_state = Consts.RUN
@@ -199,8 +198,6 @@ func _fall_state(_delta, boost: bool = false):
 		current_state = Consts.HURT
 
 func _attack1_state(_delta):
-	$Attack1/Sprite.visible = true
-	$Attack1/Animation.play(\"whip\" if Global.whip_UNLOCKED else \"shovel\")
 	# Animation.play(\"attack\")
 	if velocity.y>=0 and !is_on_floor():
 		Animation.play(\"attack_fall\")
@@ -213,51 +210,46 @@ func _attack1_state(_delta):
 	
 	if dash && dash_counter>0:
 		current_state = Consts.DASH
-		$Attack1/Sprite.visible = false
-	if jump && can_jump:
-		_handle_jump()
-	if jump && jump_counter>0:
-		djump = true
-		_handle_jump()
+	
+	$Attack1/Sprite.visible = true
+	$Attack1/Animation.play(\"sword\")
 	
 	if $Attack1/CollisionShape2D.disabled:
 		var angle = Vector2(position.x,position.y-40).angle_to_point(get_global_mouse_position())
-		var ppos = Vector2(position.x,position.y-40)
-		var flip_shove = -20 if Sprite.flip_h else 200
-		var flip_whip = 0 if Sprite.flip_h else 180
-		$Attack1.rotation_degrees = 60* ppos.angle_to_point(get_global_mouse_position()) + flip_whip if Global.whip_UNLOCKED else 60* ppos.angle_to_point(get_global_mouse_position()) + flip_shove
+		if ( angle > -1.5 && angle < 1.5 ):
+			$Attack1.rotation_degrees = -60* Vector2(position.x,position.y-40).angle_to_point(get_global_mouse_position()) + 20
+		else:
+			$Attack1.rotation_degrees = 60* Vector2(position.x,position.y-40).angle_to_point(get_global_mouse_position()) +180 + 20
 	
 	_move_lr()
 	_move_and_slide()
 	_apply_gravity(_delta)
 	
 	if knockback:
-		$Attack1/Sprite.visible = false
 		Animation.play(\"RESET\")
 		current_state = Consts.HURT
 
 func _attack2_state(_delta):
-	if Global.carrot_UNLOCKED:
-		if !Animation.current_animation == \"attack2\":
-			Global.carrot -= 1
-			var projectile_inst = PROJECTILE.instance()
-			get_parent().add_child(projectile_inst)
-			projectile_inst.position = Vector2(position.x,position.y-5*pscale)
-			var projectile_dir = Vector2(position.x,position.y-40).direction_to(get_global_mouse_position())
-			projectile_inst.launch(Vector2(projectile_dir.x*1200, projectile_dir.y*1500))
-		Animation.play(\"attack2\")
-		velocity.x=0
-		_move_and_slide()
-		_apply_gravity(_delta)
-		
-		if knockback:
-			Animation.stop()
-			current_state = Consts.HURT
-	else: current_state = Consts.IDLE
+	if !Animation.current_animation == \"attack2\":
+		Global.carrot -= 1
+		var projectile_inst = PROJECTILE.instance()
+		get_parent().add_child(projectile_inst)
+		projectile_inst.position = Vector2(position.x,position.y-5*pscale)
+		var projectile_dir = Vector2(position.x,position.y-40).direction_to(get_global_mouse_position())
+		projectile_inst.launch(Vector2(projectile_dir.x*1200, projectile_dir.y*1500))
+	Animation.play(\"attack2\")
+	velocity.x=0
+	_move_and_slide()
+	_apply_gravity(_delta)
+	
+	if knockback:
+		Animation.stop()
+		current_state = Consts.HURT
 
 func _dash_state(_delta):
 	dash_counter-=1
 	Animation.play(\"dash\")
+	
 	GroundParticles.emitting = abs(velocity.x)>10
 	DashParticles.emitting = abs(velocity.x)>10
 	DashParticles.position.x = -16 if dir>0 else 16
@@ -316,50 +308,13 @@ func _hurt_state(_delta):
 		velocity.y = -knockback/3
 	_move_and_slide()
 	_apply_gravity(_delta)
-	
-func _generate_jump_particles():
-	var particles: Node2D = CPUParticles2D.new()
-	particles.position = position
-	particles.amount = 7
-	particles.lifetime = 2
-	particles.speed_scale = 6
-	particles.explosiveness = 0.5
-	particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
-	particles.emission_rect_extents = Vector2(24,5)
-	particles.direction = Vector2(0,-1)
-	particles.spread = 45.37
-	particles.gravity = Vector2(0,25)
-	particles.initial_velocity = 35.52
-	particles.initial_velocity_random = .05
-	particles.angular_velocity = 1
-	particles.angle = 720
-	particles.angle_random = 1
-	particles.scale_amount = 8
-	particles.scale_amount_curve = $GroundParticles.scale_amount_curve
-	particles.color = Color(0,0,0,.3) if can_jump else Color(1,1,1,.3) 
-	particles.one_shot = true
-	get_parent().add_child(particles)
-
-func _handle_jump():
-	if is_on_floor() || _moving_through_diagonal_wall || can_jump:
-		can_jump = false
-		velocity.y = jump_force
-	elif Input.is_action_just_released(\"game_jump\") and velocity.y < jump_force*0.1:
-		velocity.y = jump_force * 0.1
-	elif djump: 
-		velocity.y = jump_force
-		djump = false
-		jump_counter-=1
 
 func _handle_life():
-	if Global.player_life <= 0: # life<=0:
+	if life<=0:
 		Global.paused = Global.INHARD
 		#get_tree().reload_current_scene()
 func _is_player(): 
 	return true
-func _flip_player():
-	#scale.x = -1 if get_local_mouse_position().x<0 else 1
-	Sprite.flip_h = get_local_mouse_position().x<0
 
 # Signals
 func _on_AnimationPlayer_animation_finished(anim_name):
@@ -385,7 +340,7 @@ func _on_CoyoteTimer_timeout():
 
 func _on_SpikeCollider_area_entered(area):
 	if area.is_in_group(\"Spike\"):
-		Global.player_life-=1
+		life-=1
 		Global.paused = Global.INSOFT
 		#position = Global.soft_checkpoint
 		Global.player_out = true
@@ -411,63 +366,6 @@ func _on_Attack1_area_entered(area):
 	
 func _on_Invincible_timeout():
 	vunerable = true
-
-func _cuts_presentation(_delta):
-	Animation.playback_speed = 0.5
-	Animation.play(\"run\")
-	GroundParticles.emitting = false
-	velocity.x = -run_speed /3
-	_move_and_slide()
-	_apply_gravity(_delta)
-
-func _cinematic_fall_state(_delta):
-	Animation.play(\"fall\")
-	GroundParticles.emitting = false
-	DashParticles.emitting = false
-	_move_and_slide()
-	_apply_gravity(_delta)
-	_flip_player()
-	
-	if is_on_floor():
-		current_state = Consts.IDLE
-		GroundParticles.emitting = false
-		DashParticles.emitting = false
-
-func _on_CinematicAreaCollider_area_entered(area):
-	if area.is_in_group(\"Intro\"):
-		if Global.carrot >= 12:
-			velocity.x = 0
-			current_state = Consts.CINFALL
-			get_parent().get_node(\"NarrativeShit/Movie0/AnimationPlayer\").play(\"Movie\")
-			get_parent().get_node(\"NarrativeShit/Movie0\").position.x = position.x
-			get_parent().get_node(\"Level/OneWayPlatform\").get_node(\"OWPWell\").collision_layer = 0
-			get_parent().get_node(\"Level/OneWayPlatform\").get_node(\"OWPWell\").collision_mask = 0
-			area.queue_free()
-	if area.is_in_group(\"Intro2\"):
-		get_parent().get_node(\"Level/OneWayPlatform\").get_node(\"OWPWell\").collision_layer = 0
-		get_parent().get_node(\"Level/OneWayPlatform\").get_node(\"OWPWell\").collision_mask = 1
-		area.queue_free()
-	if area.is_in_group(\"Presentation\"):
-		Sprite.flip_h = true
-		current_state = Consts.PRESENTATION
-		get_parent().get_node(\"NarrativeShit/Movie1-2/AnimationPlayer\").play(\"Movie\")
-		get_parent().get_node(\"NPC\").get_node(\"CinematicMole\").ready = true
-		get_parent().get_node(\"NarrativeShit\").get_node(\"Presentation2\").collision_layer = 2
-	if area.is_in_group(\"Presentation2\"):
-		get_parent().get_node(\"NarrativeShit\").get_node(\"CinematicBreakableBlocks\").queue_free()
-		get_parent().get_node(\"NarrativeShit/Movie1\").get_node(\"AnimationPlayer\").play(\"Movie\")
-		area.queue_free()
-		current_state = Consts.CINFALL
-		action = false
-		action_buffer = action
-		
-func _on_CinematicAreaCollider_area_exited(area):
-	if area.is_in_group(\"Presentation\"):
-		current_state = Consts.IDLE
-		Animation.playback_speed = 1
-		get_parent().get_node(\"NPC\").get_node(\"CinematicMole\").queue_free()
-		area.queue_free()
-		#$CinematicAreaCollider.queue_free()
 "
 
 [sub_resource type="Shader" id=32]
@@ -1080,45 +978,9 @@ tracks/7/keys = {
 "update": 0,
 "values": [ Rect2( 0, 0, 0, 0 ) ]
 }
-tracks/8/type = "value"
-tracks/8/path = NodePath("Attack1/Sprite:texture")
-tracks/8/interp = 1
-tracks/8/loop_wrap = true
-tracks/8/imported = false
-tracks/8/enabled = true
-tracks/8/keys = {
-"times": PoolRealArray( 0 ),
-"transitions": PoolRealArray( 1 ),
-"update": 0,
-"values": [ ExtResource( 9 ) ]
-}
-tracks/9/type = "value"
-tracks/9/path = NodePath("Attack1/CollisionShape2D:shape:extents")
-tracks/9/interp = 1
-tracks/9/loop_wrap = true
-tracks/9/imported = false
-tracks/9/enabled = true
-tracks/9/keys = {
-"times": PoolRealArray( 0 ),
-"transitions": PoolRealArray( 1 ),
-"update": 0,
-"values": [ Vector2( 56, 10 ) ]
-}
-tracks/10/type = "value"
-tracks/10/path = NodePath("Attack1/CollisionShape2D:position")
-tracks/10/interp = 1
-tracks/10/loop_wrap = true
-tracks/10/imported = false
-tracks/10/enabled = true
-tracks/10/keys = {
-"times": PoolRealArray( 0 ),
-"transitions": PoolRealArray( 1 ),
-"update": 0,
-"values": [ Vector2( 92, 0 ) ]
-}
 
-[sub_resource type="Animation" id=54]
-resource_name = "shovel"
+[sub_resource type="Animation" id=6]
+resource_name = "sword"
 length = 0.4
 step = 0.05
 tracks/0/type = "value"
@@ -1168,42 +1030,6 @@ tracks/3/keys = {
 "transitions": PoolRealArray( 1, 1 ),
 "update": 0,
 "values": [ Vector2( 8, -52 ), Vector2( -36, -20 ) ]
-}
-tracks/4/type = "value"
-tracks/4/path = NodePath("Attack1/Sprite:texture")
-tracks/4/interp = 1
-tracks/4/loop_wrap = true
-tracks/4/imported = false
-tracks/4/enabled = true
-tracks/4/keys = {
-"times": PoolRealArray( 0 ),
-"transitions": PoolRealArray( 1 ),
-"update": 1,
-"values": [ ExtResource( 9 ) ]
-}
-tracks/5/type = "value"
-tracks/5/path = NodePath("Attack1/CollisionShape2D:shape:extents")
-tracks/5/interp = 1
-tracks/5/loop_wrap = true
-tracks/5/imported = false
-tracks/5/enabled = true
-tracks/5/keys = {
-"times": PoolRealArray( 0 ),
-"transitions": PoolRealArray( 1 ),
-"update": 0,
-"values": [ Vector2( 60, 30 ) ]
-}
-tracks/6/type = "value"
-tracks/6/path = NodePath("Attack1/CollisionShape2D:position")
-tracks/6/interp = 1
-tracks/6/loop_wrap = true
-tracks/6/imported = false
-tracks/6/enabled = true
-tracks/6/keys = {
-"times": PoolRealArray( 0 ),
-"transitions": PoolRealArray( 1 ),
-"update": 0,
-"values": [ Vector2( 92, 24 ) ]
 }
 
 [sub_resource type="Animation" id=50]
@@ -1365,95 +1191,6 @@ tracks/3/keys = {
 "values": [ Vector2( 64, -86 ), Vector2( 22, -120 ), Vector2( -62, -124 ), Vector2( 32, 25 ) ]
 }
 
-[sub_resource type="Animation" id=6]
-resource_name = "whip"
-length = 0.4
-step = 0.05
-tracks/0/type = "value"
-tracks/0/path = NodePath("Attack1/Sprite:frame")
-tracks/0/interp = 1
-tracks/0/loop_wrap = true
-tracks/0/imported = false
-tracks/0/enabled = true
-tracks/0/keys = {
-"times": PoolRealArray( 0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.35 ),
-"transitions": PoolRealArray( 1, 1, 1, 1, 1, 1, 1, 1 ),
-"update": 1,
-"values": [ 0, 1, 2, 3, 4, 5, 6, 7 ]
-}
-tracks/1/type = "value"
-tracks/1/path = NodePath("Attack1/CollisionShape2D:disabled")
-tracks/1/interp = 1
-tracks/1/loop_wrap = true
-tracks/1/imported = false
-tracks/1/enabled = true
-tracks/1/keys = {
-"times": PoolRealArray( 0.05, 0.2 ),
-"transitions": PoolRealArray( 1, 1 ),
-"update": 1,
-"values": [ false, true ]
-}
-tracks/2/type = "value"
-tracks/2/path = NodePath("Attack1:rotation_degrees")
-tracks/2/interp = 1
-tracks/2/loop_wrap = true
-tracks/2/imported = false
-tracks/2/enabled = true
-tracks/2/keys = {
-"times": PoolRealArray( 0, 0.5 ),
-"transitions": PoolRealArray( 1, 1 ),
-"update": 1,
-"values": [ 0.0, 75.0 ]
-}
-tracks/3/type = "value"
-tracks/3/path = NodePath("Attack1:position")
-tracks/3/interp = 1
-tracks/3/loop_wrap = true
-tracks/3/imported = false
-tracks/3/enabled = true
-tracks/3/keys = {
-"times": PoolRealArray( 0, 0.5 ),
-"transitions": PoolRealArray( 1, 1 ),
-"update": 0,
-"values": [ Vector2( 8, -52 ), Vector2( -36, -20 ) ]
-}
-tracks/4/type = "value"
-tracks/4/path = NodePath("Attack1/Sprite:texture")
-tracks/4/interp = 1
-tracks/4/loop_wrap = true
-tracks/4/imported = false
-tracks/4/enabled = true
-tracks/4/keys = {
-"times": PoolRealArray( 0 ),
-"transitions": PoolRealArray( 1 ),
-"update": 1,
-"values": [ ExtResource( 4 ) ]
-}
-tracks/5/type = "value"
-tracks/5/path = NodePath("Attack1/CollisionShape2D:shape:extents")
-tracks/5/interp = 1
-tracks/5/loop_wrap = true
-tracks/5/imported = false
-tracks/5/enabled = true
-tracks/5/keys = {
-"times": PoolRealArray( 0 ),
-"transitions": PoolRealArray( 1 ),
-"update": 0,
-"values": [ Vector2( 56, 10 ) ]
-}
-tracks/6/type = "value"
-tracks/6/path = NodePath("Attack1/CollisionShape2D:position")
-tracks/6/interp = 1
-tracks/6/loop_wrap = true
-tracks/6/imported = false
-tracks/6/enabled = true
-tracks/6/keys = {
-"times": PoolRealArray( 0 ),
-"transitions": PoolRealArray( 1 ),
-"update": 0,
-"values": [ Vector2( 92, 0 ) ]
-}
-
 [sub_resource type="Curve" id=7]
 _data = [ Vector2( 0.00429185, 0.351136 ), 0.0, 0.0, 0, 0, Vector2( 0.497854, 1 ), 0.0, 0.0, 0, 0, Vector2( 0.987124, 0.0602273 ), 0.0, 0.0, 0, 0 ]
 
@@ -1558,16 +1295,7 @@ collision_mask = 2
 position = Vector2( 0, -40 )
 shape = SubResource( 3 )
 
-[node name="CinematicAreaCollider" type="Area2D" parent="." index="9"]
-visible = false
-collision_layer = 0
-collision_mask = 2
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="CinematicAreaCollider" index="0"]
-position = Vector2( 0, -40 )
-shape = SubResource( 3 )
-
-[node name="SpikeCollider" type="Area2D" parent="." index="10"]
+[node name="SpikeCollider" type="Area2D" parent="." index="9"]
 visible = false
 collision_layer = 0
 collision_mask = 8
@@ -1577,22 +1305,8 @@ monitorable = false
 position = Vector2( 0, -40 )
 shape = SubResource( 18 )
 
-[node name="Node2D" type="Node2D" parent="." index="11"]
+[node name="Attack1" type="Area2D" parent="." index="10" groups=["PlayerSword"]]
 visible = false
-position = Vector2( 8, -52 )
-rotation = 1.26885
-
-[node name="CollisionShape2D" type="CollisionShape2D" parent="Node2D" index="0"]
-position = Vector2( 88, -1 )
-shape = SubResource( 4 )
-
-[node name="Sprite" type="Sprite" parent="Node2D" index="1"]
-position = Vector2( -24, -12 )
-scale = Vector2( 8, 8 )
-texture = ExtResource( 4 )
-vframes = 8
-
-[node name="Attack1" type="Area2D" parent="." index="12" groups=["PlayerSword"]]
 z_index = -1
 collision_layer = 32
 collision_mask = 36
@@ -1601,17 +1315,16 @@ __meta__ = {
 }
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Attack1" index="0"]
-position = Vector2( 92, 0 )
+position = Vector2( 88, -1 )
 shape = SubResource( 4 )
 
 [node name="Animation" type="AnimationPlayer" parent="Attack1" index="1"]
 root_node = NodePath("../..")
 anims/RESET = SubResource( 5 )
-anims/shovel = SubResource( 54 )
+anims/sword = SubResource( 6 )
 "anims/sword (copy)" = SubResource( 50 )
 "anims/sword (copy) (copy)" = SubResource( 51 )
 anims/sword_up = SubResource( 34 )
-anims/whip = SubResource( 6 )
 
 [node name="Sprite" type="Sprite" parent="Attack1" index="2"]
 position = Vector2( 0, -12 )
@@ -1620,11 +1333,11 @@ z_index = 1
 texture = ExtResource( 9 )
 vframes = 8
 
-[node name="CoyoteTimer" type="Timer" parent="." index="13"]
+[node name="CoyoteTimer" type="Timer" parent="." index="11"]
 wait_time = 0.15
 one_shot = true
 
-[node name="DashParticles" type="CPUParticles2D" parent="." index="14"]
+[node name="DashParticles" type="CPUParticles2D" parent="." index="12"]
 position = Vector2( 16, -48 )
 scale = Vector2( 6, 1 )
 emitting = false
@@ -1643,10 +1356,15 @@ scale_amount = 10.0
 scale_amount_curve = SubResource( 7 )
 color_ramp = SubResource( 8 )
 
-[node name="ActionArea" parent="." index="16"]
+[node name="ActionArea" parent="." index="13"]
 visible = false
 
-[node name="Hurtbox" parent="." index="17" instance=ExtResource( 5 )]
+[node name="RayCast2D" type="RayCast2D" parent="." index="15"]
+position = Vector2( 0, 3 )
+enabled = true
+cast_to = Vector2( 0, 5 )
+
+[node name="Hurtbox" parent="." index="16" instance=ExtResource( 5 )]
 collision_layer = 16
 monitoring = false
 monitorable = true
@@ -1655,19 +1373,17 @@ monitorable = true
 position = Vector2( 0, -40 )
 shape = SubResource( 30 )
 
-[node name="Invincible" type="Timer" parent="." index="18"]
+[node name="Invincible" type="Timer" parent="." index="17"]
 
 [connection signal="animation_finished" from="AnimationPlayer" to="." method="_on_AnimationPlayer_animation_finished"]
 [connection signal="area_entered" from="MapAreaCollider" to="Camera2D" method="_on_MapAreaCollider_area_entered"]
-[connection signal="area_entered" from="CinematicAreaCollider" to="." method="_on_CinematicAreaCollider_area_entered"]
-[connection signal="area_exited" from="CinematicAreaCollider" to="." method="_on_CinematicAreaCollider_area_exited"]
 [connection signal="area_entered" from="SpikeCollider" to="." method="_on_SpikeCollider_area_entered"]
 [connection signal="area_entered" from="Attack1" to="." method="_on_Attack1_area_entered"]
 [connection signal="body_entered" from="Attack1" to="." method="_on_Attack1_body_entered"]
 [connection signal="animation_finished" from="Attack1/Animation" to="." method="_on_Animation_animation_finished"]
 [connection signal="timeout" from="CoyoteTimer" to="." method="_on_CoyoteTimer_timeout"]
-[connection signal="timeout" from="Invincible" to="." method="_on_Invincible_timeout"]
 [connection signal="body_entered" from="OWPDetect" to="." method="_on_OWPDetect_body_entered"]
 [connection signal="body_exited" from="OWPDetect" to="." method="_on_OWPDetect_body_exited"]
+[connection signal="timeout" from="Invincible" to="." method="_on_Invincible_timeout"]
 
 [editable path="Hurtbox"]

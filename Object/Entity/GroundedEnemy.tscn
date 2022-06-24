@@ -1,0 +1,221 @@
+[gd_scene load_steps=10 format=2]
+
+[ext_resource path="res://Object/Entity/Grounded.tscn" type="PackedScene" id=1]
+[ext_resource path="res://Object/Helpers/Hurtbox.tscn" type="PackedScene" id=2]
+[ext_resource path="res://Object/Helpers/Hitbox.tscn" type="PackedScene" id=3]
+
+[sub_resource type="GDScript" id=1]
+script/source = "extends \"res://Object/Entity/Grounded.tscn::16\"
+
+onready var player = get_parent().get_parent().get_node(\"Player\")
+
+const CRYSTAL := preload(\"res://Object/Item/ItCrystal.tscn\")
+const CARROT := preload(\"res://Object/Item/ItCarrot.tscn\")
+
+func _ready():
+	current_state = Consts.PATROL
+	dir = randi()%2-1
+	if dir==0:
+		dir=1
+		$WallCollider.scale.y = - dir
+
+func _physics_process(delta):
+	if $Hitbox/CollisionShape2D.scale < Vector2(1,1):
+		$Hitbox/CollisionShape2D.scale += Vector2(.005,.005)
+	match current_state:
+		Consts.IDLE:
+			_idle_state(delta)
+		Consts.HURT:
+			_hurt_state(delta)
+		Consts.PATROL:
+			_patrol_state(delta)
+		Consts.ALERT:
+			_alert_state(delta)
+	
+	if knockback:
+		GroundParticles.emitting = false
+		current_state = Consts.HURT
+
+func _patrol_state(_delta):
+	Animation.play(\"run\")
+	GroundParticles.emitting = true
+	GroundParticles.direction.x =  2 * dir
+	GroundParticles.position.x = 6 * dir
+	_move_lr()
+	_move_and_slide()
+	_handle_oneway_platforms()
+	_apply_gravity(_delta)
+	
+	if $WallCollider.is_colliding() || !$WallCollider/NoWallCollider.is_colliding():
+		dir = -dir
+		$WallCollider.scale.y = -dir
+	
+	if player:
+		if abs(player.position.x - position.x) <= 300 && abs(player.position.y - position.y) <= 20:
+			current_state = Consts.ALERT
+
+func _alert_state(_delta):
+	Animation.play(\"run\")
+	GroundParticles.emitting = true
+	GroundParticles.direction.x =  2 * dir
+	GroundParticles.position.x = 6 * dir
+	_move_lr()
+	_move_and_slide()
+	_handle_oneway_platforms()
+	_apply_gravity(_delta)
+	
+	if !( abs(player.position.x - position.x) <= 300 && abs(player.position.y - position.y) <= 20 ):
+		current_state = Consts.PATROL
+	
+	if !$WallCollider/NoWallCollider.is_colliding():
+		dir = -dir
+		$WallCollider.scale.y = -dir
+	else: 
+		dir = sign(position.x - player.position.x)
+		$WallCollider.scale.y = -dir
+
+func _hurt_state(_delta):
+	Animation.play(\"hurt\")
+	velocity.x = knockback
+	if is_on_floor():
+		velocity.y = -knockback/3
+	_move_and_slide()
+	_apply_gravity(_delta)
+
+func _handle_life():
+	if life<=0:
+		_handle_drop(25,35)
+		queue_free()
+
+func _handle_drop(crystal_rate, carrot_rate):
+	if randi()%100 <= crystal_rate:
+		var crystal_inst = CRYSTAL.instance()
+		get_parent().add_child(crystal_inst)
+		crystal_inst.position = Vector2(position.x,position.y-5*pscale)
+	if randi()%100 <= carrot_rate:
+		var carrot_inst = CARROT.instance()
+		carrot_inst.current_state = Consts.ACTIVE
+		carrot_inst.scale = Vector2(.75,.75)
+		carrot_inst.velocity.x = randi()%800-400
+		get_parent().add_child(carrot_inst)
+		carrot_inst.position = Vector2(position.x,position.y-5*pscale)
+
+func _on_Hitbox_area_entered(area):
+	$Hitbox/CollisionShape2D.scale = Vector2(.01,.01)
+	var body = area.get_parent()
+	if body.is_in_group(\"Player\"):
+		if body.vunerable: 
+			body.life -= 1 
+			body.knockback = 300*sign(body.position.x - position.x) if sign(body.position.x - position.x) else 300
+			body.vunerable = false
+
+func _on_Hurtbox_area_entered(area):
+	var body = area.get_parent()
+	if area.is_in_group(\"PlayerSword\"):
+		life -= 1
+		knockback = 900*sign(position.x - body.position.x) if sign(position.x - body.position.x) else 900
+	if area.is_in_group(\"PlayerCarrot\"):
+		life -= 1
+		knockback = 900*sign(position.x - body.position.x) if sign(position.x - body.position.x) else 900
+	if area.is_in_group(\"Spike\"):
+		life = 0
+
+func _on_AnimationPlayer_animation_finished(anim_name):
+	if current_state == Consts.HURT:
+		current_state = Consts.IDLE
+		knockback = 0
+"
+
+[sub_resource type="Shader" id=7]
+code = "shader_type canvas_item;
+
+render_mode blend_mix;
+uniform vec4 modulate: hint_color;
+
+void fragment() {
+	COLOR = vec4(modulate.rgb, texture(TEXTURE, UV).a * modulate.a);
+}
+"
+
+[sub_resource type="ShaderMaterial" id=6]
+shader = SubResource( 7 )
+shader_param/modulate = Color( 0, 0, 0, 1 )
+
+[sub_resource type="Animation" id=4]
+resource_name = "hurt"
+length = 0.15
+step = 0.15
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 3 ]
+}
+tracks/1/type = "value"
+tracks/1/path = NodePath("SpriteSheet:material:shader_param/modulate")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"times": PoolRealArray( 0, 0.15 ),
+"transitions": PoolRealArray( 1, 1 ),
+"update": 2,
+"values": [ Color( 1, 1, 1, 1 ), Color( 0, 0, 0, 1 ) ]
+}
+
+[sub_resource type="RectangleShape2D" id=2]
+extents = Vector2( 24, 32 )
+
+[sub_resource type="RectangleShape2D" id=3]
+extents = Vector2( 24, 32 )
+
+[node name="GroundedEnemy" instance=ExtResource( 1 )]
+script = SubResource( 1 )
+run_speed = 80
+
+[node name="SpriteSheet" parent="." index="0"]
+material = SubResource( 6 )
+
+[node name="AnimationPlayer" parent="." index="1"]
+anims/hurt = SubResource( 4 )
+
+[node name="Hitbox" parent="." index="6" groups=["Enemy"] instance=ExtResource( 3 )]
+
+[node name="CollisionShape2D" parent="Hitbox" index="0"]
+position = Vector2( 0, -32 )
+shape = SubResource( 2 )
+
+[node name="Hurtbox" parent="." index="7" groups=["Enemy"] instance=ExtResource( 2 )]
+collision_layer = 32
+monitorable = true
+
+[node name="CollisionShape2D" parent="Hurtbox" index="0"]
+position = Vector2( 0, -32 )
+shape = SubResource( 3 )
+
+[node name="WallCollider" type="RayCast2D" parent="." index="8"]
+position = Vector2( 0, -40 )
+rotation = -1.5708
+enabled = true
+collision_mask = 4
+
+[node name="NoWallCollider" type="RayCast2D" parent="WallCollider" index="0"]
+position = Vector2( -39.9999, 24.0001 )
+rotation = 0.785396
+enabled = true
+cast_to = Vector2( 0, 16 )
+collision_mask = 4
+
+[connection signal="animation_finished" from="AnimationPlayer" to="." method="_on_AnimationPlayer_animation_finished"]
+[connection signal="area_entered" from="Hitbox" to="." method="_on_Hitbox_area_entered"]
+[connection signal="area_entered" from="Hurtbox" to="." method="_on_Hurtbox_area_entered"]
+
+[editable path="Hitbox"]
+[editable path="Hurtbox"]

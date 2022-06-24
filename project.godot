@@ -12,17 +12,23 @@ config_version=4
 
 config/name="sim"
 run/main_scene="res://TitleScreen.tscn"
-boot_splash/image="res://assets/Sprite-0002-30x14-98x50.png"
+boot_splash/image="res://assets/sun.png"
+boot_splash/use_filter=false
+boot_splash/bg_color=Color( 0, 0, 0, 1 )
 config/icon="res://icon.png"
 
 [autoload]
 
 Global="*res://Global.gd"
+Consts="*res://Consts.gd"
 
 [display]
 
 window/size/width=1280
 window/size/height=720
+window/size/borderless=true
+mouse_cursor/custom_image="res://assets/mousecursor.png"
+mouse_cursor/custom_image_hotspot=Vector2( 4, 0 )
 window/stretch/mode="2d"
 window/stretch/aspect="keep"
 
@@ -165,3 +171,7 @@ game_attack2={
 [physics]
 
 common/enable_pause_aware_picking=true
+
+[rendering]
+
+environment/default_clear_color=Color( 0.439216, 0.509804, 0.247059, 1 )

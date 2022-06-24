@@ -1,0 +1,224 @@
+[gd_scene load_steps=10 format=2]
+
+[ext_resource path="res://Object/Entity/Object.tscn" type="PackedScene" id=1]
+[ext_resource path="res://assets/lifebar-sheet.png" type="Texture" id=2]
+[ext_resource path="res://Object/Helpers/Hurtbox.tscn" type="PackedScene" id=3]
+
+[sub_resource type="GDScript" id=1]
+script/source = "extends \"res://Object/Entity/Object.tscn::16\"
+
+export var active: bool = true
+
+func _ready():
+	if active:
+		current_state = Consts.ACTIVE
+
+func _physics_process(delta):
+	pass
+
+func _on_Hurtbox_body_entered(body):
+	if body.is_in_group(\"Player\"):
+		Global.player_life = clamp(Global.player_life+1,0,Global.player_life_max)
+		queue_free()
+
+func _on_Timer_timeout():
+	queue_free()
+"
+
+[sub_resource type="Animation" id=2]
+resource_name = "Idle"
+length = 1.2
+loop = true
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 0 ]
+}
+tracks/1/type = "value"
+tracks/1/path = NodePath("SpriteSheet:modulate")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"times": PoolRealArray( 0, 0.8, 1, 1.2 ),
+"transitions": PoolRealArray( 1, 1, 1, 1 ),
+"update": 0,
+"values": [ Color( 0, 0, 0, 0.54902 ), Color( 0, 0, 0, 0.54902 ), Color( 1, 1, 1, 1 ), Color( 0, 0, 0, 0.54902 ) ]
+}
+tracks/2/type = "value"
+tracks/2/path = NodePath("SpriteSheet:position")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/keys = {
+"times": PoolRealArray( 0, 0.2, 0.4, 0.6, 0.8, 1, 2 ),
+"transitions": PoolRealArray( 1, 1, 1, 1, 1, 1, 1 ),
+"update": 0,
+"values": [ Vector2( 1.5, -22 ), Vector2( 0, -21 ), Vector2( -1.5, -22 ), Vector2( -1.5, -24 ), Vector2( 0, -26 ), Vector2( 1.5, -24 ), Vector2( 0, -24 ) ]
+}
+tracks/3/type = "value"
+tracks/3/path = NodePath("SpriteSheet:rotation_degrees")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/keys = {
+"times": PoolRealArray( 0, 0.6 ),
+"transitions": PoolRealArray( 1, 1 ),
+"update": 0,
+"values": [ 1.5, -1.5 ]
+}
+tracks/4/type = "value"
+tracks/4/path = NodePath("SpriteSheet:scale")
+tracks/4/interp = 1
+tracks/4/loop_wrap = true
+tracks/4/imported = false
+tracks/4/enabled = true
+tracks/4/keys = {
+"times": PoolRealArray( 0.3, 0.9 ),
+"transitions": PoolRealArray( 1, 1 ),
+"update": 0,
+"values": [ Vector2( 8, 7 ), Vector2( 7, 8 ) ]
+}
+
+[sub_resource type="Animation" id=3]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ 0 ]
+}
+tracks/1/type = "value"
+tracks/1/path = NodePath("SpriteSheet:modulate")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ Color( 1, 1, 1, 1 ) ]
+}
+tracks/2/type = "value"
+tracks/2/path = NodePath("SpriteSheet:position")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ Vector2( 0, -24 ) ]
+}
+tracks/3/type = "value"
+tracks/3/path = NodePath("SpriteSheet:rotation_degrees")
+tracks/3/interp = 1
+tracks/3/loop_wrap = true
+tracks/3/imported = false
+tracks/3/enabled = true
+tracks/3/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ 0.0 ]
+}
+tracks/4/type = "value"
+tracks/4/path = NodePath("SpriteSheet:scale")
+tracks/4/interp = 1
+tracks/4/loop_wrap = true
+tracks/4/imported = false
+tracks/4/enabled = true
+tracks/4/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ Vector2( 8, 8 ) ]
+}
+
+[sub_resource type="Animation" id=4]
+resource_name = "active"
+loop = true
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 0 ]
+}
+
+[sub_resource type="Animation" id=5]
+resource_name = "inactive"
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 3 ]
+}
+
+[sub_resource type="RectangleShape2D" id=6]
+extents = Vector2( 24, 40 )
+
+[node name="ItCrystal" instance=ExtResource( 1 )]
+collision_layer = 0
+script = SubResource( 1 )
+
+[node name="SpriteSheet" parent="." index="0"]
+position = Vector2( 0, -24 )
+texture = ExtResource( 2 )
+hframes = 1
+region_enabled = true
+region_rect = Rect2( 0, 0, 4, 12 )
+
+[node name="AnimationPlayer" parent="." index="1"]
+playback_speed = 0.25
+anims/Idle = SubResource( 2 )
+anims/RESET = SubResource( 3 )
+anims/active = SubResource( 4 )
+anims/inactive = SubResource( 5 )
+
+[node name="CollisionShape2D" parent="." index="2"]
+position = Vector2( 0, -36 )
+
+[node name="Hurtbox" parent="." index="4" instance=ExtResource( 3 )]
+collision_mask = 96
+
+[node name="CollisionShape2D" parent="Hurtbox" index="0"]
+shape = SubResource( 6 )
+
+[node name="Timer" type="Timer" parent="." index="5"]
+wait_time = 10.0
+autostart = true
+
+[connection signal="body_entered" from="Hurtbox" to="." method="_on_Hurtbox_body_entered"]
+[connection signal="timeout" from="Timer" to="." method="_on_Timer_timeout"]
+
+[editable path="Hurtbox"]

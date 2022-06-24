@@ -44,28 +44,29 @@ func _process(delta):
 		
 
 func _on_MapAreaCollider_area_entered(area):
-	Global.soft_checkpoint = get_parent().position
-	Global.reload_enemy = true
-	get_parent().get_node(\"Bg/Orange\").visible = area.get_parent().is_in_group(\"Surface\")
-	get_parent().get_node(\"Bg/Purple\").visible = area.get_parent().is_in_group(\"AreaE\")
-	get_parent().get_node(\"Bg/Red\").visible = area.get_parent().is_in_group(\"Area0\")
-	get_parent().get_node(\"Bg/Blue\").visible = area.get_parent().is_in_group(\"Area1\")
-	get_parent().get_node(\"Bg/Green\").visible = area.get_parent().is_in_group(\"Area2\")
-	
-	var collision_shape = area.get_node(\"CollisionShape2D\")
-	var size = collision_shape.shape.extents*2
-	
-	var view_size = get_viewport_rect().size * zoom
-	if size.y+128 < view_size.y:
-		size.y = view_size.y-128
-	if size.x+128 < view_size.x:
-		size.x = view_size.x-128
+	if !area.is_in_group(\"Cinematic\"):
+		Global.soft_checkpoint = get_parent().position
+		Global.reload_enemy = true
+		get_parent().get_node(\"Bg/Orange\").visible = area.get_parent().is_in_group(\"Surface\")
+		get_parent().get_node(\"Bg/Purple\").visible = area.get_parent().is_in_group(\"AreaE\")
+		get_parent().get_node(\"Bg/Red\").visible = area.get_parent().is_in_group(\"Area0\")
+		get_parent().get_node(\"Bg/Blue\").visible = area.get_parent().is_in_group(\"Area1\")
+		get_parent().get_node(\"Bg/Green\").visible = area.get_parent().is_in_group(\"Area2\")
+		
+		var collision_shape = area.get_node(\"CollisionShape2D\")
+		var size = collision_shape.shape.extents*2
+		
+		var view_size = get_viewport_rect().size * zoom
+		if size.y+128 < view_size.y:
+			size.y = view_size.y-128
+		if size.x+128 < view_size.x:
+			size.x = view_size.x-128
 
-	limit_top = (collision_shape.global_position.y - size.y/2) - 64
-	limit_left = (collision_shape.global_position.x - size.x/2) - 64
+		limit_top = (collision_shape.global_position.y - size.y/2) - 64
+		limit_left = (collision_shape.global_position.x - size.x/2) - 64
 
-	limit_bottom = (limit_top + size.y) + 128
-	limit_right = (limit_left + size.x) + 128
+		limit_bottom = (limit_top + size.y) + 128
+		limit_right = (limit_left + size.x) + 128
 "
 
 [node name="Camera2D" type="Camera2D"]
