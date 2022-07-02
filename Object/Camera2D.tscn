@@ -4,18 +4,18 @@
 script/source = "extends Camera2D
 
 var timer: float
+var can_set_offset: bool = true
 
 func _ready(): 
 	get_parent().get_node(\"Bg\").visible = true
 
 func _process(delta):
 	
-	# camera seta opcao offset (1 - (-1)) de acordo com a posição do mouse
-	# offset y tem menor mobilidade
-	offset_h = get_local_mouse_position().x/640
-	offset_v = get_local_mouse_position().y/486 - .4
-	
-	#Input.set_mouse_mode(Input.MOUSE_MODE_HIDDEN)
+	if can_set_offset:
+		# camera seta opcao offset (1 - (-1)) de acordo com a posição do mouse
+		# offset y tem menor mobilidade
+		offset_h = get_local_mouse_position().x/640
+		offset_v = get_local_mouse_position().y/486 - .4
 	
 	# temporizador para aumentar a velocidade da suavização da camera quando o jogador está caindo
 	# em alta velocidade; temporizador incrementa com valor de delta

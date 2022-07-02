@@ -1,4 +1,4 @@
-[gd_scene load_steps=43 format=2]
+[gd_scene load_steps=47 format=2]
 
 [ext_resource path="res://Object/Entity/Grounded.tscn" type="PackedScene" id=1]
 [ext_resource path="res://assets/pix.png" type="Texture" id=2]
@@ -25,22 +25,30 @@ var can_jump: bool = true
 onready var Hurtbox = $Hurtbox
 var owp = null
 
+onready var origin_run_speed = run_speed
+onready var origin_jump_force = jump_force
+
 var vunerable: bool = true
 
 # Helper vars
 var _moving_through_diagonal_wall: bool
 
 onready var DashParticles = $DashParticles
+onready var GroundWallParticles = $GroundWallParticles
 
 func _ready(): 
-	Global.soft_checkpoint = position
-	#life_max = Global.player_life_max
-	#life = life_max
+	Global.player=self
+	if Global.first_position:
+		Global.checkpoint = position
+		Global.soft_checkpoint = position
+		Global.first_position = false
 	$Attack1/Sprite.visible = false
 	$Attack1/CollisionShape2D.disabled = true
 
 func _physics_process(delta):
-	#Global.player_life = life
+	
+	run_speed = origin_run_speed if Global.whip_UNLOCKED else origin_run_speed*.75
+	jump_force = origin_jump_force if Global.whip_UNLOCKED else origin_jump_force*.8
 	dir = Input.get_action_strength('game_left') - Input.get_action_strength('game_right')
 	vdir = Input.get_action_strength('game_up') - Input.get_action_strength('game_down')
 	jump = Input.is_action_just_pressed(\"game_jump\")
@@ -58,7 +66,7 @@ func _physics_process(delta):
 	
 	_moving_through_diagonal_wall = is_on_wall() && abs(velocity.x)>1
 	
-	if is_on_floor() || _moving_through_diagonal_wall:
+	if is_on_floor() || _moving_through_diagonal_wall || current_state==Consts.WALLSLIDE:
 		Global.player_out = false
 		$CoyoteTimer.start()
 		can_jump = true
@@ -75,6 +83,8 @@ func _physics_process(delta):
 			_jump_state(delta, true)
 		Consts.BOOSTFALL:
 			_fall_state(delta, true)
+		Consts.WALLSLIDE:
+			_wslide_state(delta)
 			
 		Consts.PRESENTATION:
 			_cuts_presentation(delta)
@@ -114,39 +124,50 @@ func _idle_state(_delta):
 
 func _run_state(_delta):
 	Animation.play(\"run\")
+	Animation.playback_speed = 1 if Global.whip_UNLOCKED else 0.7
 	GroundParticles.emitting = true
-	GroundParticles.direction.x =  2 * dir
-	GroundParticles.position.x = 6 * dir
+	GroundParticles.gravity.y = 12 if Global.whip_UNLOCKED else 9
+	GroundParticles.direction.x = 2 * dir
+	GroundParticles.position.x = (GroundParticles.gravity.y/2) * dir
 	_move_lr()
 	_move_and_slide()
 	_apply_gravity(_delta)
 	_flip_player()
 	
 	if !dir:
+		GroundParticles.gravity.y = 12
 		GroundParticles.emitting = false
 		current_state = Consts.IDLE
 	if jump:
+		GroundParticles.gravity.y = 12
 		GroundParticles.emitting = false
 		current_state = Consts.JUMP
 	if dash && dash_counter>0:
+		GroundParticles.gravity.y = 12
 		GroundParticles.emitting = false
 		current_state = Consts.DASH
 	if velocity.y>0 and !is_on_floor():
+		GroundParticles.gravity.y = 12
 		GroundParticles.emitting = false
 		current_state = Consts.FALL
 	if Input.is_action_just_pressed(\"game_attack1\"):
-		GroundParticles.emitting = false
+#		GroundParticles.gravity.y = 12
+#		GroundParticles.emitting = false
 		current_state = Consts.ATTACK
 	if Input.is_action_just_pressed(\"game_attack2\") && Global.carrot>0:
+		GroundParticles.gravity.y = 12
 		GroundParticles.emitting = false
 		current_state = Consts.ATTACK2
 	if knockback:
+		GroundParticles.gravity.y = 12
 		GroundParticles.emitting = false
 		current_state = Consts.HURT
 
 func _jump_state(_delta, boost: bool = false):
+	var walljump = Animation.current_animation == \"wallslide\"
 	if boost && abs(dir) < 0.5: current_state = Consts.JUMP
-	if Animation.current_animation != \"jump\": _generate_jump_particles()
+	if Animation.current_animation != \"jump\": 
+		_generate_jump_particles(walljump)
 	Animation.play(\"jump\")
 	boost = boost && abs(dir) > 0.5
 	GroundParticles.emitting = false
@@ -154,7 +175,10 @@ func _jump_state(_delta, boost: bool = false):
 	
 	_handle_jump()
 	
-	_move_lr(boost)
+	if walljump:
+		velocity.x = 500*dir
+	else:
+		_move_lr(boost)
 	_move_and_slide()
 	_apply_gravity(_delta)
 	_flip_player()
@@ -186,6 +210,10 @@ func _fall_state(_delta, boost: bool = false):
 		current_state = Consts.IDLE
 		GroundParticles.emitting = false
 		DashParticles.emitting = false
+	if is_on_wall() && Global.wjump_UNLOCKED:
+		current_state = Consts.WALLSLIDE
+		GroundParticles.emitting = false
+		DashParticles.emitting = false
 	if dash && dash_counter>0:
 		current_state = Consts.DASH
 	if jump && can_jump:
@@ -200,6 +228,7 @@ func _fall_state(_delta, boost: bool = false):
 
 func _attack1_state(_delta):
 	$Attack1/Sprite.visible = true
+	GroundParticles.emitting = abs(velocity.x) > 10
 	$Attack1/Animation.play(\"whip\" if Global.whip_UNLOCKED else \"shovel\")
 	# Animation.play(\"attack\")
 	if velocity.y>=0 and !is_on_floor():
@@ -232,6 +261,7 @@ func _attack1_state(_delta):
 	_apply_gravity(_delta)
 	
 	if knockback:
+		GroundParticles.emitting = false
 		$Attack1/Sprite.visible = false
 		Animation.play(\"RESET\")
 		current_state = Consts.HURT
@@ -280,6 +310,38 @@ func _dash_state(_delta):
 		collision_layer = 65 #1,7
 		collision_mask = 65
 
+func _wslide_state(_delta):
+	Animation.play(\"wallslide\")
+	GroundParticles.emitting = false
+	_move_lr()
+	_move_and_slide()
+	_apply_gravity(_delta,.3)
+	Sprite.flip_h = dir>0
+	
+	GroundWallParticles.emitting = true
+	GroundWallParticles.direction.x = 1 * dir
+	GroundWallParticles.position.x = -8 * dir
+	
+	if !is_on_wall():
+		current_state = Consts.FALL
+		GroundWallParticles.emitting = false
+	if _moving_through_diagonal_wall:
+		current_state = Consts.RUN
+		GroundWallParticles.emitting = false
+	if is_on_floor():
+		current_state = Consts.IDLE
+		GroundParticles.emitting = false
+		GroundWallParticles.emitting = false
+	if dash && dash_counter>0:
+		current_state = Consts.DASH
+		GroundWallParticles.emitting = false
+	if jump && can_jump:
+		current_state = Consts.JUMP 
+		GroundWallParticles.emitting = false
+	if knockback:
+		current_state = Consts.HURT
+		GroundWallParticles.emitting = false
+
 func _climb_state(delta):
 	if !Animation.current_animation == \"climb1\":
 		position.y-=1
@@ -317,19 +379,19 @@ func _hurt_state(_delta):
 	_move_and_slide()
 	_apply_gravity(_delta)
 	
-func _generate_jump_particles():
+func _generate_jump_particles(walljumping=false):
 	var particles: Node2D = CPUParticles2D.new()
-	particles.position = position
+	particles.position = position if !walljumping else Vector2(position.x-16*dir,position.y-20)
 	particles.amount = 7
-	particles.lifetime = 2
+	particles.lifetime = 2 if !walljumping else 1.5
 	particles.speed_scale = 6
 	particles.explosiveness = 0.5
 	particles.emission_shape = CPUParticles2D.EMISSION_SHAPE_RECTANGLE
-	particles.emission_rect_extents = Vector2(24,5)
-	particles.direction = Vector2(0,-1)
+	particles.emission_rect_extents = Vector2(24,5) if !walljumping else Vector2(10,10)
+	particles.direction = Vector2(0 if !walljumping else 1*dir,-1)
 	particles.spread = 45.37
 	particles.gravity = Vector2(0,25)
-	particles.initial_velocity = 35.52
+	particles.initial_velocity = 35.52 if !walljumping else 50
 	particles.initial_velocity_random = .05
 	particles.angular_velocity = 1
 	particles.angle = 720
@@ -428,7 +490,7 @@ func _cinematic_fall_state(_delta):
 	_apply_gravity(_delta)
 	_flip_player()
 	
-	if is_on_floor():
+	if is_on_floor() && Global.progress.intro2:
 		current_state = Consts.IDLE
 		GroundParticles.emitting = false
 		DashParticles.emitting = false
@@ -436,24 +498,30 @@ func _cinematic_fall_state(_delta):
 func _on_CinematicAreaCollider_area_entered(area):
 	if area.is_in_group(\"Intro\"):
 		if Global.carrot >= 12:
+			Global.progress.intro1 = true
 			velocity.x = 0
 			current_state = Consts.CINFALL
 			get_parent().get_node(\"NarrativeShit/Movie0/AnimationPlayer\").play(\"Movie\")
 			get_parent().get_node(\"NarrativeShit/Movie0\").position.x = position.x
+			get_parent().get_node(\"NarrativeShit/WellLock\").queue_free()
 			get_parent().get_node(\"Level/OneWayPlatform\").get_node(\"OWPWell\").collision_layer = 0
 			get_parent().get_node(\"Level/OneWayPlatform\").get_node(\"OWPWell\").collision_mask = 0
 			area.queue_free()
 	if area.is_in_group(\"Intro2\"):
+		Global.progress.intro2 = true
 		get_parent().get_node(\"Level/OneWayPlatform\").get_node(\"OWPWell\").collision_layer = 0
 		get_parent().get_node(\"Level/OneWayPlatform\").get_node(\"OWPWell\").collision_mask = 1
 		area.queue_free()
 	if area.is_in_group(\"Presentation\"):
+		Global.progress.presentation1 = true
 		Sprite.flip_h = true
 		current_state = Consts.PRESENTATION
 		get_parent().get_node(\"NarrativeShit/Movie1-2/AnimationPlayer\").play(\"Movie\")
 		get_parent().get_node(\"NPC\").get_node(\"CinematicMole\").ready = true
-		get_parent().get_node(\"NarrativeShit\").get_node(\"Presentation2\").collision_layer = 2
+		
 	if area.is_in_group(\"Presentation2\"):
+		print(true)
+		Global.progress.presentation2 = true
 		get_parent().get_node(\"NarrativeShit\").get_node(\"CinematicBreakableBlocks\").queue_free()
 		get_parent().get_node(\"NarrativeShit/Movie1\").get_node(\"AnimationPlayer\").play(\"Movie\")
 		area.queue_free()
@@ -935,6 +1003,21 @@ tracks/1/keys = {
 "transitions": PoolRealArray( 1 ),
 "update": 1,
 "values": [ ExtResource( 7 ) ]
+}
+
+[sub_resource type="Animation" id=55]
+resource_name = "wallslide"
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 18 ]
 }
 
 [sub_resource type="CapsuleShape2D" id=9]
@@ -1464,10 +1547,24 @@ colors = PoolColorArray( 0, 0, 0, 0.490196, 1, 1, 1, 0 )
 [sub_resource type="RectangleShape2D" id=30]
 extents = Vector2( 24, 40 )
 
+[sub_resource type="Curve" id=56]
+_data = [ Vector2( 0.00429185, 0.351136 ), 0.0, 0.0, 0, 0, Vector2( 0.497854, 1 ), 0.0, 0.0, 0, 0, Vector2( 0.987124, 0.0602273 ), 0.0, 0.0, 0, 0 ]
+
+[sub_resource type="Gradient" id=58]
+offsets = PoolRealArray( 0, 0.385542, 1 )
+colors = PoolColorArray( 0, 0, 0, 0.372549, 0.644578, 0.644578, 0.644578, 0.372549, 1, 1, 1, 0.372549 )
+
+[sub_resource type="Curve" id=57]
+_data = [ Vector2( 0.00429185, 0.351136 ), 0.0, 0.0, 0, 0, Vector2( 0.497854, 1 ), 0.0, 0.0, 0, 0, Vector2( 0.987124, 0.0602273 ), 0.0, 0.0, 0, 0 ]
+
 [node name="Player" groups=["Player"] instance=ExtResource( 1 )]
 collision_layer = 65
 collision_mask = 65
 script = SubResource( 2 )
+velocity = null
+run_speed = null
+jump_force = null
+life_max = null
 
 [node name="SpriteSheet" parent="." index="0"]
 material = SubResource( 33 )
@@ -1488,6 +1585,7 @@ anims/hurt = SubResource( 43 )
 anims/idle = SubResource( 44 )
 anims/jump = SubResource( 45 )
 anims/run = SubResource( 46 )
+anims/wallslide = SubResource( 55 )
 
 [node name="CollisionShape2D" parent="." index="2"]
 shape = SubResource( 9 )
@@ -1656,6 +1754,55 @@ position = Vector2( 0, -40 )
 shape = SubResource( 30 )
 
 [node name="Invincible" type="Timer" parent="." index="18"]
+
+[node name="VisibilityEnabler2D" parent="." index="20"]
+pause_animations = false
+freeze_bodies = false
+pause_particles = false
+pause_animated_sprites = false
+process_parent = false
+physics_process_parent = false
+
+[node name="GroundWallParticles" type="CPUParticles2D" parent="." index="21"]
+position = Vector2( 8, -47 )
+emitting = false
+amount = 3
+lifetime = 2.0
+speed_scale = 6.0
+emission_shape = 2
+emission_rect_extents = Vector2( 0, 40 )
+direction = Vector2( -1, -4 )
+spread = 0.0
+gravity = Vector2( 0, 12 )
+initial_velocity = 35.52
+initial_velocity_random = 0.05
+angular_velocity = 1.0
+angle = 720.0
+angle_random = 1.0
+scale_amount = 8.0
+scale_amount_curve = SubResource( 56 )
+color_ramp = SubResource( 58 )
+
+[node name="WallJumpParticles" type="CPUParticles2D" parent="." index="22"]
+emitting = false
+amount = 6
+lifetime = 2.0
+one_shot = true
+speed_scale = 6.0
+explosiveness = 1.0
+emission_shape = 2
+emission_rect_extents = Vector2( 24, 5 )
+direction = Vector2( 0, -1 )
+spread = 45.37
+gravity = Vector2( 0, 12 )
+initial_velocity = 35.52
+initial_velocity_random = 0.05
+angular_velocity = 1.0
+angle = 720.0
+angle_random = 1.0
+scale_amount = 8.0
+scale_amount_curve = SubResource( 57 )
+color = Color( 0, 0, 0, 0.372549 )
 
 [connection signal="animation_finished" from="AnimationPlayer" to="." method="_on_AnimationPlayer_animation_finished"]
 [connection signal="area_entered" from="MapAreaCollider" to="Camera2D" method="_on_MapAreaCollider_area_entered"]

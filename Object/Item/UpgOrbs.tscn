@@ -15,6 +15,11 @@ export(int, \"Dash\", \"Explosive Carrot\", \"Wall Jump\", \"Double Jump\") var 
 func _ready():
 	if active:
 		current_state = Consts.ACTIVE
+	match(type):
+		DASH: if Global.dash_UNLOCKED: queue_free()
+		EXPLOSIVE_CARROT: if false: queue_free()
+		WALL_JUMP: if false: queue_free()
+		DOUBLE_JUMP: if Global.djump_UNLOCKED: queue_free()
 
 func _physics_process(delta):
 	$AnimationPlayer.play(str(type))
@@ -23,14 +28,12 @@ func _on_Hurtbox_body_entered(body):
 	if body.is_in_group(\"Player\"):
 		match type:
 			DASH:
-				#print(\"Desbloqueou dash\")
 				Global.dash_UNLOCKED = true
 			EXPLOSIVE_CARROT:
-				print(\"Desbloqueou explosive carrot\")
+				Global.excarrot_UNLOCKED = true
 			WALL_JUMP:
-				print(\"Desbloqueou wall jump\")
+				Global.wjump_UNLOCKED = true
 			DOUBLE_JUMP:
-				#print(\"Desbloqueou double jump\")
 				Global.djump_UNLOCKED = true
 		queue_free()
 	

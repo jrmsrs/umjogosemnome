@@ -1,5 +1,15 @@
 extends Node
 
+var first_position: bool = true
+
+var progress = {
+	"intro1": false,
+	"intro2": false,
+	"presentation1": false,
+	"presentation2": false,
+	"upg": 0,
+}
+
 var reload_enemy: bool = false
 var player_life_max: float = 8
 var player_life = player_life_max
@@ -7,6 +17,8 @@ var checkpoint: Vector2
 var soft_checkpoint: Vector2
 var player_out: bool = false
 var carrot: float = 0
+
+var player: Node2D
 
 var whip_UNLOCKED: bool = false
 var carrot_UNLOCKED: bool = false

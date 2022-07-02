@@ -76,7 +76,7 @@ extents = Vector2( 128, 44 )
 _data = [ Vector2( 0.00429185, 0.351136 ), 0.0, 0.0, 0, 0, Vector2( 0.497854, 1 ), 0.0, 0.0, 0, 0, Vector2( 0.987124, 0.0602273 ), 0.0, 0.0, 0, 0 ]
 
 [sub_resource type="RectangleShape2D" id=19]
-extents = Vector2( 128, 20 )
+extents = Vector2( 112, 12 )
 
 [node name="MovingPlatform" type="KinematicBody2D"]
 z_index = 1
@@ -129,8 +129,7 @@ color = Color( 0, 0, 0, 0.372549 )
 position = Vector2( -32, -8 )
 
 [node name="CollisionShape2D" parent="Spike" index="0"]
-visible = false
-position = Vector2( 32, -12 )
+position = Vector2( 32, -20 )
 shape = SubResource( 19 )
 
 [editable path="Spike"]

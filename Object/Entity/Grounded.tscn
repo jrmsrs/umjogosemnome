@@ -124,8 +124,8 @@ func _hurt_state(_delta):
 
 # Helpers
 # Funções basicas que vão se repetir dependendo da State
-func _apply_gravity(_delta):
-	velocity.y += gravity * _delta
+func _apply_gravity(_delta, multi=1):
+	velocity.y += gravity * multi * _delta
 func _move_and_slide():
 	velocity = move_and_slide(velocity,Vector2(0,-1))
 func _move_lr(boost: bool = false):
@@ -444,6 +444,13 @@ collision_mask = 8
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="OWPDetect"]
 shape = SubResource( 19 )
+
+[node name="VisibilityEnabler2D" type="VisibilityEnabler2D" parent="."]
+visible = false
+position = Vector2( -512, -576 )
+rect = Rect2( 0, 0, 1024, 1024 )
+process_parent = true
+physics_process_parent = true
 
 [connection signal="area_entered" from="ActionArea" to="." method="_on_ActionArea_area_entered"]
 [connection signal="area_exited" from="ActionArea" to="." method="_on_ActionArea_area_exited"]

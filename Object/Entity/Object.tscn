@@ -108,3 +108,10 @@ angle_random = 1.0
 scale_amount = 8.0
 scale_amount_curve = SubResource( 7 )
 color = Color( 0, 0, 0, 0.372549 )
+
+[node name="VisibilityEnabler2D" type="VisibilityEnabler2D" parent="."]
+visible = false
+position = Vector2( -512, -576 )
+rect = Rect2( 0, 0, 1024, 1024 )
+process_parent = true
+physics_process_parent = true

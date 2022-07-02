@@ -1,0 +1,339 @@
+[gd_scene load_steps=6 format=2]
+
+[ext_resource path="res://Object/Enemy/Crabzin.tscn" type="PackedScene" id=1]
+[ext_resource path="res://Object/Level/EnInvisibleWall.tscn" type="PackedScene" id=2]
+[ext_resource path="res://Object/Enemy/EnBat.tscn" type="PackedScene" id=3]
+
+[sub_resource type="GDScript" id=1]
+script/source = "extends \"res://Object/Entity/GroundedEnemy.tscn::1\"
+
+func _patrol_state(_delta):
+	Animation.play(\"run\")
+	GroundParticles.emitting = true
+	_move_lr()
+	_move_and_slide()
+	_handle_oneway_platforms()
+	_apply_gravity(_delta)
+	
+	if $WallCollider.is_colliding() || !$WallCollider/NoWallCollider.is_colliding():
+		dir = -dir
+		$WallCollider.scale.y = -dir
+	
+	if player:
+		if abs(player.position.x - position.x) <= 300 && abs(player.position.y - position.y) <= 20:
+			current_state = Consts.ALERT
+
+func _on_Hitbox_area_entered(area):
+	$Hitbox/CollisionShape2D.scale = Vector2(.01,.01)
+	var body = area.get_parent()
+	if body.is_in_group(\"Player\"):
+		if body.vunerable: 
+			Global.player_life -= 1 #body.life -= 1 
+			body.knockback = 300*sign(body.position.x - position.x) if sign(body.position.x - position.x) else 300
+			body.vunerable = false
+
+func _on_Hurtbox_area_entered(area):
+	var body = area.get_parent()
+	if area.is_in_group(\"PlayerSword\"):
+		life -= 1
+		knockback = 300*sign(position.x - body.position.x) if sign(position.x - body.position.x) else 300
+	if area.is_in_group(\"PlayerCarrot\"):
+		life -= 1
+		knockback = 450*sign(position.x - body.position.x) if sign(position.x - body.position.x) else 450
+		print(knockback)
+	if area.is_in_group(\"Spike\"):
+		life = 0
+"
+
+[sub_resource type="GDScript" id=3]
+script/source = "extends \"res://Object/Entity/Object.tscn::16\"
+
+onready var origin_pos = position
+onready var player = get_parent().get_parent().get_node(\"Player\")
+
+const CRYSTAL := preload(\"res://Object/Item/ItCrystal.tscn\")
+const CARROT := preload(\"res://Object/Item/ItCarrot.tscn\")
+
+export var life_max: float = 2
+var life: float = life_max
+var knockback: int = 0
+
+var path = []
+var threshold: int = 8
+var nav = null
+var chase: bool = false
+
+func _ready():
+	$SpriteSheet.material = $SpriteSheet.material.duplicate()
+	yield(owner, \"ready\")
+	if nav!=null: 
+		nav = owner.nav 
+
+func _physics_process(delta):
+	match current_state:
+		Consts.IDLE:
+			_idle_state()
+		Consts.CHASE:
+			_chase_state()
+		Consts.HURT:
+			_hurt_state()
+	_handle_life()
+
+func _idle_state():
+	current_state = Consts.CHASE
+
+func _chase_state():
+	Animation.play(\"run\")
+	if velocity==Vector2.ZERO:
+		Animation.play(\"idle\")
+	else:
+		Animation.play(\"run\")
+	if $Hitbox/CollisionShape2D.scale < Vector2(1,1):
+		$Hitbox/CollisionShape2D.scale += Vector2(.005,.005)
+		
+	if Global.reload_enemy:
+		chase=false
+		position = origin_pos
+		path = []
+	
+	if player:
+		chase = position.distance_to(player.position) < 400
+	
+	$SpriteSheet.flip_h = velocity.x<0
+	if path.size() > 0:
+		move_to_target()
+	if path.size() > 0:
+		if position.distance_to(path[path.size() -1]) > 600 || position.distance_to(path[0]) < 30:
+			if $Timer.time_left==0:
+				$Timer.start()
+		else:
+			$Timer.stop()
+	if knockback:
+		current_state = Consts.HURT
+
+func _hurt_state():
+	Animation.play(\"hurt\")
+	velocity = Vector2.ZERO
+
+func move_to_target():
+	if global_position.distance_to(path[0]) < threshold:
+		path.remove(0)
+	else:
+		var direction = global_position.direction_to(path[0])
+		velocity = direction * run_speed if position.distance_to(player.position) < 100 else direction * (run_speed * 1.5)
+		velocity = move_and_slide(velocity)
+
+func get_target_path(target_pos):
+	if chase:
+		path = nav.get_simple_path(global_position, target_pos, false)
+
+func _handle_life():
+	if life<=0:
+		_handle_drop(25,35)
+		queue_free()
+func _handle_drop(crystal_rate, carrot_rate):
+	if randi()%100 <= crystal_rate:
+		var crystal_inst = CRYSTAL.instance()
+		get_parent().add_child(crystal_inst)
+		crystal_inst.position = Vector2(position.x,position.y-5*pscale)
+	if randi()%100 <= carrot_rate:
+		var carrot_inst = CARROT.instance()
+		carrot_inst.current_state = Consts.ACTIVE
+		carrot_inst.scale = Vector2(.75,.75)
+		carrot_inst.velocity.x = randi()%800-400
+		get_parent().add_child(carrot_inst)
+		carrot_inst.position = Vector2(position.x,position.y-5*pscale)
+
+func _on_Timer_timeout():
+	chase=false
+	position = origin_pos
+	velocity=Vector2.ZERO
+	path = []
+
+func _on_Hitbox_area_entered(area):
+	$Hitbox/CollisionShape2D.scale = Vector2(.01,.01)
+	var body = area.get_parent()
+	if body.is_in_group(\"Player\"):
+		if body.vunerable: 
+			Global.player_life -= 1 #body.life -= 1 
+			body.knockback = 300*sign(body.position.x - position.x) if sign(body.position.x - position.x) else 300
+			body.vunerable = false
+
+func _on_Hurtbox_area_entered(area):
+	var body = area.get_parent()
+	if area.is_in_group(\"PlayerSword\"):
+		life -= 1
+		knockback = 900*sign(position.x - body.position.x) if sign(position.x - body.position.x) else 900
+	if area.is_in_group(\"PlayerCarrot\"):
+		life -= 1
+		knockback = 900*sign(position.x - body.position.x) if sign(position.x - body.position.x) else 900
+
+func _on_AnimationPlayer_animation_finished(anim_name):
+	if current_state == Consts.HURT:
+		current_state = Consts.IDLE
+		knockback = 0
+"
+
+[node name="Enemy" type="Node2D"]
+
+[node name="EnemyInvisibleWall" type="Node2D" parent="."]
+
+[node name="EnInvisibleWall" parent="EnemyInvisibleWall" instance=ExtResource( 2 )]
+position = Vector2( 960, 6720 )
+
+[node name="EnInvisibleWall2" parent="EnemyInvisibleWall" instance=ExtResource( 2 )]
+position = Vector2( 912, 4992 )
+
+[node name="EnInvisibleWall3" parent="EnemyInvisibleWall" instance=ExtResource( 2 )]
+position = Vector2( 5504, 1792 )
+
+[node name="Crabzin13" parent="." instance=ExtResource( 1 )]
+position = Vector2( 904, 504 )
+script = SubResource( 1 )
+
+[node name="EnBat3" parent="." instance=ExtResource( 3 )]
+position = Vector2( 5984, 1144 )
+script = SubResource( 3 )
+
+[node name="EnBat4" parent="." instance=ExtResource( 3 )]
+position = Vector2( 1320, 2368 )
+script = SubResource( 3 )
+
+[node name="EnBat6" parent="." instance=ExtResource( 3 )]
+position = Vector2( 960, 2368 )
+script = SubResource( 3 )
+
+[node name="EnBat5" parent="." instance=ExtResource( 3 )]
+position = Vector2( 888, 5504 )
+script = SubResource( 3 )
+
+[node name="EnBat11" parent="." instance=ExtResource( 3 )]
+position = Vector2( 440, 4672 )
+script = SubResource( 3 )
+
+[node name="EnBat14" parent="." instance=ExtResource( 3 )]
+position = Vector2( -1160, 3200 )
+script = SubResource( 3 )
+
+[node name="EnBat21" parent="." instance=ExtResource( 3 )]
+position = Vector2( -632, 3200 )
+script = SubResource( 3 )
+
+[node name="EnBat15" parent="." instance=ExtResource( 3 )]
+position = Vector2( 1416, 3200 )
+script = SubResource( 3 )
+
+[node name="EnBat16" parent="." instance=ExtResource( 3 )]
+position = Vector2( -160, 3520 )
+script = SubResource( 3 )
+
+[node name="EnBat19" parent="." instance=ExtResource( 3 )]
+position = Vector2( -576, 4096 )
+script = SubResource( 3 )
+
+[node name="EnBat20" parent="." instance=ExtResource( 3 )]
+position = Vector2( 832, 4096 )
+script = SubResource( 3 )
+
+[node name="EnBat18" parent="." instance=ExtResource( 3 )]
+position = Vector2( 384, 3520 )
+script = SubResource( 3 )
+
+[node name="EnBat17" parent="." instance=ExtResource( 3 )]
+position = Vector2( -896, 1216 )
+script = SubResource( 3 )
+
+[node name="EnBat7" parent="." instance=ExtResource( 3 )]
+position = Vector2( -1136, 6400 )
+script = SubResource( 3 )
+
+[node name="EnBat8" parent="." instance=ExtResource( 3 )]
+position = Vector2( -2128, 6400 )
+script = SubResource( 3 )
+
+[node name="EnBat9" parent="." instance=ExtResource( 3 )]
+position = Vector2( -2976, 6400 )
+script = SubResource( 3 )
+
+[node name="EnBat10" parent="." instance=ExtResource( 3 )]
+position = Vector2( -4064, 6400 )
+script = SubResource( 3 )
+
+[node name="EnBat12" parent="." instance=ExtResource( 3 )]
+position = Vector2( -4184, 6400 )
+script = SubResource( 3 )
+
+[node name="Crabzin" parent="." instance=ExtResource( 1 )]
+position = Vector2( 3800, 2048 )
+script = SubResource( 1 )
+run_speed = 40
+
+[node name="Crabzin2" parent="." instance=ExtResource( 1 )]
+position = Vector2( 4928, 1920 )
+script = SubResource( 1 )
+run_speed = 40
+
+[node name="Crabzin15" parent="." instance=ExtResource( 1 )]
+position = Vector2( 4672, 1984 )
+script = SubResource( 1 )
+run_speed = 40
+
+[node name="Crabzin3" parent="." instance=ExtResource( 1 )]
+position = Vector2( 5760, 1856 )
+script = SubResource( 1 )
+run_speed = 40
+
+[node name="Crabzin4" parent="." instance=ExtResource( 1 )]
+position = Vector2( 128, 6656 )
+script = SubResource( 1 )
+run_speed = 40
+
+[node name="Crabzin12" parent="." instance=ExtResource( 1 )]
+position = Vector2( 664, 6784 )
+script = SubResource( 1 )
+run_speed = 40
+
+[node name="Crabzin6" parent="." instance=ExtResource( 1 )]
+position = Vector2( 32, 5056 )
+script = SubResource( 1 )
+run_speed = 40
+
+[node name="Crabzin16" parent="." instance=ExtResource( 1 )]
+position = Vector2( 496, 5056 )
+script = SubResource( 1 )
+run_speed = 40
+
+[node name="Crabzin7" parent="." instance=ExtResource( 1 )]
+position = Vector2( 384, 4416 )
+script = SubResource( 1 )
+run_speed = 40
+
+[node name="Crabzin14" parent="." instance=ExtResource( 1 )]
+position = Vector2( -120, 4416 )
+script = SubResource( 1 )
+run_speed = 40
+
+[node name="Crabzin8" parent="." instance=ExtResource( 1 )]
+position = Vector2( 96, 3904 )
+script = SubResource( 1 )
+run_speed = 40
+
+[node name="Crabzin10" parent="." instance=ExtResource( 1 )]
+position = Vector2( -536, 1600 )
+script = SubResource( 1 )
+run_speed = 40
+
+[node name="Crabzin11" parent="." instance=ExtResource( 1 )]
+position = Vector2( -1176, 1600 )
+script = SubResource( 1 )
+run_speed = 40
+
+[node name="Crabzin5" parent="." instance=ExtResource( 1 )]
+position = Vector2( -1592, 6656 )
+script = SubResource( 1 )
+run_speed = 40
+
+[node name="Crabzin9" parent="." instance=ExtResource( 1 )]
+position = Vector2( -2112, 6592 )
+script = SubResource( 1 )
+run_speed = 40

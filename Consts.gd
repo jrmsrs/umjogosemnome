@@ -11,7 +11,7 @@ enum {
 	IDLE, RUN, HURT, FALL, JUMP, 
 	
 	# Very uncommon (or player exclusive)
-	CLIMB, ATTACK, ATTACK2, 
+	CLIMB, ATTACK, ATTACK2, WALLSLIDE,
 	
 	# Player Updates
 	DASH, BOOSTJUMP, BOOSTFALL,

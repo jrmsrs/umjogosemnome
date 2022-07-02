@@ -25,6 +25,7 @@ func _physics_process(delta):
 			$CollisionShape2D.disabled = true
 			$Hurtbox/CollisionShape2D.disabled = true
 		Consts.GROUND:
+			active=false
 			$AnimationPlayer.play(\"active\")
 			$CollisionShape2D.disabled = true
 			$Hurtbox/CollisionShape2D.disabled = false
@@ -32,21 +33,26 @@ func _physics_process(delta):
 			if velocity.y<0:
 				$CollisionShape2D.disabled = false
 			$AnimationPlayer.play(\"active\")
-			$Hurtbox/CollisionShape2D.disabled = true
+			$Hurtbox/CollisionShape2D.disabled = false
 			_move_and_slide()
 			if !is_on_floor():
 				_apply_gravity(delta)
 			else:
 				current_state = Consts.GROUND
 	_limit_vspeed()
+	_special()
 	if !autodestroy:
 		if get_node_or_null (\"Timer\"):
 			get_node(\"Timer\").queue_free()
+
+func _special():
+	pass
 
 func _on_Hurtbox_area_entered(area):
 	if area.is_in_group(\"PlayerSword\"):
 		position.y-= ( randi()%10 )+50
 		velocity.y=-400
+		velocity.x=(randi()%30)-15
 		current_state = Consts.ACTIVE
 
 func _on_Hurtbox_body_entered(body):
@@ -113,6 +119,7 @@ extents = Vector2( 16, 16 )
 
 [node name="ItCarrot" instance=ExtResource( 1 )]
 collision_layer = 0
+collision_mask = 128
 script = SubResource( 1 )
 
 [node name="SpriteSheet" parent="." index="0"]

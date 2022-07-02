@@ -1,22 +1,31 @@
-[gd_scene load_steps=11 format=2]
+[gd_scene load_steps=14 format=2]
 
 [ext_resource path="res://Object/Entity/Object.tscn" type="PackedScene" id=1]
 [ext_resource path="res://assets/checkpoint.png" type="Texture" id=2]
 [ext_resource path="res://Object/Helpers/Hurtbox.tscn" type="PackedScene" id=3]
+[ext_resource path="res://Object/Transition.tscn" type="PackedScene" id=4]
 
 [sub_resource type="GDScript" id=1]
 script/source = "extends \"res://Object/Entity/Object.tscn::16\"
 
-export var active: bool = true
-
+var active: bool = Global.checkpoint == position #true
+var spawned: bool = false
+var reuse: bool = false
 var healing: bool = false
+var heal_buffer: float
+onready var camera = get_parent().get_parent().get_parent().get_node(\"Player/Camera2D\")
 
 func _ready():
-	if active:
-		current_state = Consts.ACTIVE
+	$CanvasLayer/Transition.material.set_shader_param(\"progress\",0)
+	spawned = Vector2(abs(position.x-Global.checkpoint.x),abs(position.y-Global.checkpoint.y)) < Vector2(100,100)
+	if spawned:
+		current_state = Consts.IDLE
 	else:
-		$AnimationPlayer.play(\"RESET\")
-		current_state = Consts.INACTIVE
+		if active:
+			current_state = Consts.ACTIVE
+		else:
+			$AnimationPlayer.play(\"RESET\")
+			current_state = Consts.INACTIVE
 
 func _physics_process(delta):
 	match(current_state):
@@ -30,16 +39,35 @@ func _physics_process(delta):
 		Consts.IDLE:
 			$AnimationPlayer.play(\"Idle\")
 	if healing:
-		Global.player_life = min(Global.player_life+delta,Global.player_life_max)
-		if Global.carrot<5: Global.carrot = min(Global.carrot+delta,5)
+		#foca camera no player
+		#var camera = get_parent().get_parent().get_parent().get_node(\"Player/Camera2D\")
+		#camera.offset_h = 0
+		#camera.offset_v = -0.5
+			
+		heal_buffer = min(heal_buffer+delta,Global.player_life_max)
+		Global.player_life = int(heal_buffer)
+		if Global.carrot<5: Global.carrot = min(Global.carrot+delta*2,5)
+	else:
+		$CanvasLayer/Transition.material.set_shader_param(\"progress\",0)
 
 func _on_Hurtbox_body_entered(body):
 	if body.is_in_group(\"Player\"): 
-		current_state = Consts.ACTIVE
+		spawned = Vector2(abs(position.x-Global.checkpoint.x),abs(position.y-Global.checkpoint.y)) < Vector2(100,100)
+		active = spawned
+		
+		_set_player_pos()
+		camera.can_set_offset=false
+		if reuse:
+			current_state = Consts.ACTIVE
+		else:
+			current_state = Consts.ACTIVE if !spawned else Consts.IDLE
+		heal_buffer = Global.player_life
 		healing = true
 
 func _on_Hurtbox_body_exited(body):
 	if body.is_in_group(\"Player\"): 
+		camera.can_set_offset=true
+		reuse = true
 		if active:
 			current_state = Consts.IDLE
 		else:
@@ -50,9 +78,84 @@ func _on_AnimationPlayer_animation_finished(anim_name):
 	if current_state == Consts.ACTIVE:
 		active=true
 		current_state = Consts.IDLE
-		Global.checkpoint = position
+		Global.checkpoint = get_parent().get_parent().get_parent().get_node(\"Player\").position
+		Global.soft_checkpoint = Global.checkpoint
+		get_tree().reload_current_scene()
 
+func _set_player_pos():
+	var player_pos = get_parent().get_parent().get_parent().get_node(\"Player\").get_global_transform_with_canvas().origin
+
+	player_pos = Vector2((camera.offset_h+1)/2, abs(camera.offset_v-0.5)/2)
+	$CanvasLayer/Transition.material.set_shader_param(\"center\",player_pos)
 "
+
+[sub_resource type="Shader" id=12]
+code = "shader_type canvas_item;
+
+uniform float screen_width = 1920;
+uniform float screen_height = 1080;
+uniform vec2 center = vec2(0.5f);
+uniform vec2 player = vec2(0.5f);
+
+uniform float progress : hint_range(0,1);
+uniform float pixel_size = 24f;
+uniform float circle_size : hint_range(0,2) = 1.5f;
+uniform float curtains : hint_range(0,1) = 1f;
+
+uniform int type : hint_range(0,4) = 0;
+
+void fragment() {
+	//Tipo Diamante Pixel
+	if (type == 0) {
+		float xFraction = fract(FRAGCOORD.x / pixel_size);
+		float yFraction = fract(FRAGCOORD.y / pixel_size);
+		
+		float xDistance = abs(xFraction - 0.5);
+		float yDistance = abs(yFraction - 0.5);
+
+		if (xDistance + yDistance + UV.x + UV.y > progress * 4f) {
+			discard;
+		}
+	}
+	//Tipo Circulo no player
+	else if (type == 1) {
+		float ratio = screen_width / screen_height;
+		if (distance(player, vec2(mix(player.x, UV.x, ratio), UV.y)) < circle_size * (1.0 - progress)) {
+			COLOR.a = 0f;
+		}
+	}
+	//Tipo Circulo no Centro
+	else if (type == 2) {
+		float ratio = screen_width / screen_height;
+		if (distance(center, vec2(mix(center.x, UV.x, ratio), UV.y)) < circle_size * (1.0 - progress)) {
+			COLOR.a = 0f;
+		}
+	}
+	//Tipo Corte Vertical
+	else if (type == 3) {
+		if (distance(vec2(0.5, 0.5), vec2(UV.x, UV.x)) < curtains * (1.0 - progress)) {
+			COLOR.a = 0f;
+		}
+	}
+	//Tipo Corte Horizontal
+	else if (type == 4) {
+		if (distance(center, vec2(UV.y, UV.y)) < curtains * (1.0 - progress)) {
+			COLOR.a = 0f;
+		}
+	}
+}"
+
+[sub_resource type="ShaderMaterial" id=13]
+shader = SubResource( 12 )
+shader_param/screen_width = 1920.0
+shader_param/screen_height = 1080.0
+shader_param/center = Vector2( 0.5, 0.5 )
+shader_param/player = Vector2( 0.5, 0.5 )
+shader_param/progress = 0.0
+shader_param/pixel_size = 24.0
+shader_param/circle_size = 1.5
+shader_param/curtains = 1.0
+shader_param/type = 4
 
 [sub_resource type="Animation" id=7]
 resource_name = "Idle"
@@ -218,11 +321,35 @@ tracks/6/keys = {
 "update": 0,
 "values": [ Color( 0, 0, 0, 0.470588 ) ]
 }
+tracks/7/type = "value"
+tracks/7/path = NodePath("CanvasLayer/Transition:material:shader_param/progress")
+tracks/7/interp = 1
+tracks/7/loop_wrap = true
+tracks/7/imported = false
+tracks/7/enabled = true
+tracks/7/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ 0.0 ]
+}
+tracks/8/type = "value"
+tracks/8/path = NodePath("CanvasLayer/Transition:visible")
+tracks/8/interp = 1
+tracks/8/loop_wrap = true
+tracks/8/imported = false
+tracks/8/enabled = true
+tracks/8/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ true ]
+}
 
 [sub_resource type="Animation" id=9]
 resource_name = "active"
 length = 0.65
-step = 0.025
+step = 0.05
 tracks/0/type = "value"
 tracks/0/path = NodePath("SpriteSheet/Sprite3:position")
 tracks/0/interp = 1
@@ -302,10 +429,34 @@ tracks/6/loop_wrap = true
 tracks/6/imported = false
 tracks/6/enabled = true
 tracks/6/keys = {
-"times": PoolRealArray( 0, 0.225, 0.65 ),
-"transitions": PoolRealArray( 1, 1, 1 ),
+"times": PoolRealArray( 0.225, 0.65 ),
+"transitions": PoolRealArray( 1, 1 ),
 "update": 0,
-"values": [ Color( 0, 0, 0, 0.470588 ), Color( 0, 0, 0, 1 ), Color( 1, 1, 1, 1 ) ]
+"values": [ Color( 0, 0, 0, 1 ), Color( 1, 1, 1, 1 ) ]
+}
+tracks/7/type = "value"
+tracks/7/path = NodePath("CanvasLayer/Transition:material:shader_param/progress")
+tracks/7/interp = 1
+tracks/7/loop_wrap = true
+tracks/7/imported = false
+tracks/7/enabled = true
+tracks/7/keys = {
+"times": PoolRealArray( 0, 0.15, 0.4, 0.65 ),
+"transitions": PoolRealArray( 1, 1, 1, 1 ),
+"update": 0,
+"values": [ 0.0, 0.5, 0.65, 1.0 ]
+}
+tracks/8/type = "value"
+tracks/8/path = NodePath("CanvasLayer/Transition:visible")
+tracks/8/interp = 1
+tracks/8/loop_wrap = true
+tracks/8/imported = false
+tracks/8/enabled = true
+tracks/8/keys = {
+"times": PoolRealArray( 0, 0.65 ),
+"transitions": PoolRealArray( 1, 1 ),
+"update": 1,
+"values": [ true, false ]
 }
 
 [sub_resource type="Animation" id=10]
@@ -389,7 +540,7 @@ tracks/5/keys = {
 [sub_resource type="Animation" id=11]
 resource_name = "restore"
 length = 0.65
-step = 0.025
+step = 0.05
 tracks/0/type = "value"
 tracks/0/path = NodePath("SpriteSheet/Sprite3:position")
 tracks/0/interp = 1
@@ -474,6 +625,30 @@ tracks/6/keys = {
 "update": 0,
 "values": [ Color( 1, 1, 1, 1 ) ]
 }
+tracks/7/type = "value"
+tracks/7/path = NodePath("CanvasLayer/Transition:material:shader_param/progress")
+tracks/7/interp = 1
+tracks/7/loop_wrap = true
+tracks/7/imported = false
+tracks/7/enabled = true
+tracks/7/keys = {
+"times": PoolRealArray( 0, 0.15, 0.4, 0.65 ),
+"transitions": PoolRealArray( 1, 1, 1, 1 ),
+"update": 0,
+"values": [ 0.0, 0.5, 0.65, 1.0 ]
+}
+tracks/8/type = "value"
+tracks/8/path = NodePath("CanvasLayer/Transition:visible")
+tracks/8/interp = 1
+tracks/8/loop_wrap = true
+tracks/8/imported = false
+tracks/8/enabled = true
+tracks/8/keys = {
+"times": PoolRealArray( 0, 0.65 ),
+"transitions": PoolRealArray( 1, 1 ),
+"update": 1,
+"values": [ true, false ]
+}
 
 [sub_resource type="RectangleShape2D" id=6]
 extents = Vector2( 40, 40 )
@@ -481,9 +656,14 @@ extents = Vector2( 40, 40 )
 [node name="Checkpoint" instance=ExtResource( 1 )]
 collision_layer = 0
 script = SubResource( 1 )
-active = false
 
-[node name="SpriteSheet" parent="." index="0"]
+[node name="CanvasLayer" type="CanvasLayer" parent="." index="0"]
+layer = 2
+
+[node name="Transition" parent="CanvasLayer" index="0" instance=ExtResource( 4 )]
+material = SubResource( 13 )
+
+[node name="SpriteSheet" parent="." index="1"]
 modulate = Color( 0, 0, 0, 0.470588 )
 position = Vector2( 0, -32 )
 hframes = 4
@@ -505,7 +685,7 @@ position = Vector2( -5, 0 )
 texture = ExtResource( 2 )
 hframes = 5
 
-[node name="AnimationPlayer" parent="." index="1"]
+[node name="AnimationPlayer" parent="." index="2"]
 playback_speed = 0.25
 anims/Idle = SubResource( 7 )
 anims/RESET = SubResource( 8 )
@@ -513,10 +693,10 @@ anims/active = SubResource( 9 )
 anims/inactive = SubResource( 10 )
 anims/restore = SubResource( 11 )
 
-[node name="CollisionShape2D" parent="." index="2"]
+[node name="CollisionShape2D" parent="." index="3"]
 position = Vector2( 0, -36 )
 
-[node name="Hurtbox" parent="." index="4" instance=ExtResource( 3 )]
+[node name="Hurtbox" parent="." index="5" instance=ExtResource( 3 )]
 position = Vector2( 0, 8 )
 collision_mask = 96
 

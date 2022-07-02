@@ -10,9 +10,11 @@ export var condition: int = 2
 func _ready():
 	$SpriteSheet.material = $SpriteSheet.material.duplicate()
 
-func _physics_process(delta):
-	if Global.carrot >= condition:
-		current_state = Consts.GROUND
+func _special():
+	if !active:
+		if Global.carrot >= condition:
+			current_state = Consts.GROUND
+			active=true
 "
 
 [sub_resource type="Shader" id=2]

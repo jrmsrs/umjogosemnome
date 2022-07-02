@@ -39,7 +39,6 @@ func _on_Hurtbox_area_entered(area):
 	if area.is_in_group(\"PlayerCarrot\"):
 		life -= 1
 		knockback = 450*sign(position.x - body.position.x) if sign(position.x - body.position.x) else 450
-		print(knockback)
 	if area.is_in_group(\"Spike\"):
 		life = 0
 "

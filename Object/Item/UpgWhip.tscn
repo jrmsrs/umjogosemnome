@@ -10,6 +10,7 @@ script/source = "extends \"res://Object/Entity/Object.tscn::16\"
 export var active: bool = true
 
 func _ready():
+	if Global.whip_UNLOCKED: queue_free()
 	if active:
 		current_state = Consts.ACTIVE
 

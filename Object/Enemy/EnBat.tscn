@@ -487,6 +487,8 @@ extents = Vector2( 24, 28 )
 extents = Vector2( 24, 28 )
 
 [node name="EnBat" groups=["Enemy"] instance=ExtResource( 1 )]
+collision_layer = 128
+collision_mask = 128
 script = SubResource( 3 )
 has_gravity = false
 run_speed = 250
