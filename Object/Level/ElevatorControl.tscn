@@ -1,0 +1,215 @@
+[gd_scene load_steps=11 format=2]
+
+[ext_resource path="res://assets/footiles.png" type="Texture" id=1]
+[ext_resource path="res://tilesets/ts1.tres" type="TileSet" id=2]
+
+[sub_resource type="GDScript" id=16]
+script/source = "extends Area2D
+
+var player_in: bool = false
+onready var elevator = get_parent().get_parent().get_node(\"Elevator\")
+const pos = [
+	Vector2(1952,6784),
+	Vector2(1952,4480),
+	Vector2(1952,2112)
+]
+
+func _process(delta):
+	# Caso seja animação Pos1, o indice atual seria 1-1 = 0; Pos2, o indice seria 2-1 = 1; etc
+	var i = int(elevator.get_node(\"AnimationPlayer\").current_animation)-1
+	# Pode subir se i for menor que o min entre o lenght do array pos[] e a qtd de ratos salvos/2 (limitador)
+	if player_in && (Input.is_action_pressed(\"game_up\") || Input.is_action_pressed(\"game_down\")):
+		Global.checkpoint = position
+		Global.elevator_pos = _get_nearest()
+		#print(Global.elevator_pos)
+		$CanvasLayer/AnimationPlayer.play(\"Out\")
+		Global.elevator_working=true
+		get_tree().paused = true
+		$Timer.start()
+
+func _get_nearest() -> String:
+	var i = 0
+	var nearest = i
+	for posi in pos:
+		if abs(posi.y - position.y)<50: 
+			nearest=i
+		i+=1
+	return \"Pos\"+str(nearest+1)
+
+func _on_ElevatorControl_body_entered(body):
+	if body.is_in_group(\"Player\"): 
+		player_in = true
+func _on_ElevatorControl_body_exited(body):
+	if body.is_in_group(\"Player\"): 
+		player_in = false
+
+func _on_Timer_timeout():
+	get_tree().paused = false
+	get_tree().reload_current_scene()
+"
+
+[sub_resource type="RectangleShape2D" id=14]
+extents = Vector2( 16, 48 )
+
+[sub_resource type="Animation" id=12]
+resource_name = "Bell"
+length = 3.0
+loop = true
+tracks/0/type = "value"
+tracks/0/path = NodePath(".:rotation_degrees")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 1.2, 1.7, 2.2 ),
+"transitions": PoolRealArray( 1, 1, 1, 1 ),
+"update": 0,
+"values": [ 0.0, 8.0, 0.0, -8.0 ]
+}
+tracks/1/type = "value"
+tracks/1/path = NodePath(".:modulate")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"times": PoolRealArray( 0, 1.5, 2.2 ),
+"transitions": PoolRealArray( 1, 1, 1 ),
+"update": 0,
+"values": [ Color( 1, 1, 1, 0.219608 ), Color( 1, 1, 1, 0.627451 ), Color( 1, 1, 1, 0.490196 ) ]
+}
+
+[sub_resource type="Animation" id=13]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/path = NodePath(".:modulate")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ Color( 1, 1, 1, 1 ) ]
+}
+
+[sub_resource type="Animation" id=15]
+resource_name = "Ring"
+length = 0.5
+tracks/0/type = "value"
+tracks/0/path = NodePath(".:rotation_degrees")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 0.1, 0.2, 0.4 ),
+"transitions": PoolRealArray( 1, 1, 1, 1 ),
+"update": 0,
+"values": [ 0.0, 8.0, 0.0, -8.0 ]
+}
+tracks/1/type = "value"
+tracks/1/path = NodePath(".:modulate")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"times": PoolRealArray( 0, 0.2, 0.5 ),
+"transitions": PoolRealArray( 1, 1, 1 ),
+"update": 0,
+"values": [ Color( 1, 1, 1, 0.219608 ), Color( 1, 1, 1, 0.627451 ), Color( 1, 1, 1, 0.490196 ) ]
+}
+
+[sub_resource type="NoiseTexture" id=17]
+
+[sub_resource type="Animation" id=18]
+resource_name = "Out"
+length = 4.0
+tracks/0/type = "value"
+tracks/0/path = NodePath("Sprite:modulate")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 4 ),
+"transitions": PoolRealArray( 1, 1 ),
+"update": 0,
+"values": [ Color( 1, 1, 1, 0 ), Color( 0, 0, 0, 1 ) ]
+}
+
+[sub_resource type="Animation" id=19]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/path = NodePath("Sprite:modulate")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ Color( 1, 1, 1, 0 ) ]
+}
+
+[node name="ElevatorControl" type="Area2D"]
+pause_mode = 2
+script = SubResource( 16 )
+__meta__ = {
+"_edit_lock_": true
+}
+
+[node name="TileMap" type="TileMap" parent="."]
+position = Vector2( 44, 1.58548e-05 )
+scale = Vector2( 8, 8 )
+tile_set = ExtResource( 2 )
+cell_size = Vector2( 8, 8 )
+format = 1
+tile_data = PoolIntArray( -65537, 536870912, 786445, -1, 536870912, 983053 )
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="."]
+position = Vector2( 0, -48 )
+shape = SubResource( 14 )
+
+[node name="ControlBell" type="Node2D" parent="."]
+position = Vector2( 24, -88 )
+
+[node name="Sprite" type="Sprite" parent="ControlBell"]
+position = Vector2( 0, 12 )
+scale = Vector2( 8, 8 )
+texture = ExtResource( 1 )
+region_enabled = true
+region_rect = Rect2( 75, 115, 3, 3 )
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="ControlBell"]
+autoplay = "Bell"
+anims/Bell = SubResource( 12 )
+anims/RESET = SubResource( 13 )
+anims/Ring = SubResource( 15 )
+
+[node name="Timer" type="Timer" parent="."]
+wait_time = 3.0
+one_shot = true
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="Sprite" type="Sprite" parent="CanvasLayer"]
+modulate = Color( 1, 1, 1, 0 )
+scale = Vector2( 8, 8 )
+texture = SubResource( 17 )
+__meta__ = {
+"_edit_lock_": true
+}
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="CanvasLayer"]
+autoplay = "RESET"
+anims/Out = SubResource( 18 )
+anims/RESET = SubResource( 19 )
+
+[connection signal="body_entered" from="." to="." method="_on_ElevatorControl_body_entered"]
+[connection signal="body_exited" from="." to="." method="_on_ElevatorControl_body_exited"]
+[connection signal="timeout" from="Timer" to="." method="_on_Timer_timeout"]

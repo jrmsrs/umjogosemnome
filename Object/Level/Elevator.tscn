@@ -1,0 +1,317 @@
+[gd_scene load_steps=14 format=2]
+
+[ext_resource path="res://tilesets/ts1.tres" type="TileSet" id=1]
+[ext_resource path="res://assets/footiles.png" type="Texture" id=3]
+
+[sub_resource type="GDScript" id=7]
+script/source = "extends Node2D
+
+var player_in: bool = false
+
+const pos = [
+	Vector2(1952,6784),
+	Vector2(1952,4480),
+	Vector2(1952,2112)
+]
+
+func _ready():
+	if Global.elevator_checkpoint:
+		position = Global.checkpoint
+		$AnimationPlayer.play(Global.elevator_pos)
+func _process(delta):
+	# Caso seja animação Pos1, o indice atual seria 1-1 = 0; Pos2, o indice seria 2-1 = 1; etc
+	var i = int($AnimationPlayer.current_animation)-1
+	# Pode subir se i for menor que o min entre o lenght do array pos[] e a qtd de ratos salvos/2 (limitador)
+	var cango_up = i+1< min( pos.size(),Global.progress.rats/2+1 )
+	var cango_down = i-1>=0
+	
+	if !cango_up:
+		if get_node_or_null(\"ArrowUp\"):
+			$ArrowUp.queue_free()
+	if !cango_down:
+		if get_node_or_null(\"ArrowDown\"):
+			$ArrowDown.queue_free()
+	
+	if player_in && cango_up && Input.is_action_pressed(\"game_up\") && !Global.game_saving:
+		Global.elevator_checkpoint=true
+		Global.checkpoint = pos[min(i+1, pos.size()-1)] 
+		Global.elevator_pos = \"Pos\"+str( min(i+1, pos.size()-1) +1)
+		$CanvasLayer/AnimationPlayer.play(\"Out\")
+		Global.elevator_working=true
+		get_tree().paused = true
+		$Timer.start()
+	elif player_in && cango_down  && Input.is_action_pressed(\"game_down\") && !Global.game_saving:
+		Global.elevator_checkpoint=true
+		Global.checkpoint = pos[max(i-1, 0)] 
+		Global.elevator_pos = \"Pos\"+str( max(i-1, 0) +1)
+		$CanvasLayer/AnimationPlayer.play(\"Out\")
+		Global.elevator_working=true
+		get_tree().paused = true
+		$Timer.start()
+
+func _on_Area2D_body_entered(body):
+	if body.is_in_group(\"Player\"): 
+		player_in = true
+func _on_Area2D_body_exited(body):
+	if body.is_in_group(\"Player\"): 
+		player_in = false
+
+func _on_Timer_timeout():
+	get_tree().paused = false
+	get_tree().reload_current_scene()
+"
+
+[sub_resource type="Animation" id=1]
+resource_name = "Pos1"
+loop = true
+tracks/0/type = "value"
+tracks/0/path = NodePath(".:position")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ Vector2( 1952, 6784 ) ]
+}
+
+[sub_resource type="Animation" id=2]
+resource_name = "Pos2"
+loop = true
+tracks/0/type = "value"
+tracks/0/path = NodePath(".:position")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ Vector2( 1952, 4480 ) ]
+}
+
+[sub_resource type="Animation" id=3]
+resource_name = "Pos3"
+loop = true
+tracks/0/type = "value"
+tracks/0/path = NodePath(".:position")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ Vector2( 1952, 2112 ) ]
+}
+
+[sub_resource type="Animation" id=4]
+resource_name = "RESET"
+tracks/0/type = "value"
+tracks/0/path = NodePath(".:position")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ Vector2( 0, 0 ) ]
+}
+
+[sub_resource type="Animation" id=5]
+resource_name = "move"
+length = 2.0
+loop = true
+tracks/0/type = "value"
+tracks/0/path = NodePath(".:position")
+tracks/0/interp = 1
+tracks/0/loop_wrap = false
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 1 ),
+"transitions": PoolRealArray( 1, 1 ),
+"update": 0,
+"values": [ Vector2( 0, -104 ), Vector2( 0, -200 ) ]
+}
+tracks/1/type = "value"
+tracks/1/path = NodePath(".:scale")
+tracks/1/interp = 1
+tracks/1/loop_wrap = false
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"times": PoolRealArray( 0, 1 ),
+"transitions": PoolRealArray( 1, 1 ),
+"update": 0,
+"values": [ Vector2( 0, 0 ), Vector2( 8, 8 ) ]
+}
+tracks/2/type = "value"
+tracks/2/path = NodePath(".:modulate")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/keys = {
+"times": PoolRealArray( 0, 0.6, 1, 2 ),
+"transitions": PoolRealArray( 1, 1, 1, 1 ),
+"update": 0,
+"values": [ Color( 1, 1, 1, 0 ), Color( 1, 1, 1, 1 ), Color( 1, 1, 1, 1 ), Color( 1, 1, 1, 0 ) ]
+}
+
+[sub_resource type="Animation" id=6]
+resource_name = "move"
+length = 2.0
+loop = true
+tracks/0/type = "value"
+tracks/0/path = NodePath(".:position")
+tracks/0/interp = 1
+tracks/0/loop_wrap = false
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 1 ),
+"transitions": PoolRealArray( 1, 1 ),
+"update": 0,
+"values": [ Vector2( 0, 64 ), Vector2( 0, 160 ) ]
+}
+tracks/1/type = "value"
+tracks/1/path = NodePath(".:scale")
+tracks/1/interp = 1
+tracks/1/loop_wrap = false
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"times": PoolRealArray( 0, 1 ),
+"transitions": PoolRealArray( 1, 1 ),
+"update": 0,
+"values": [ Vector2( 0, 0 ), Vector2( 8, -8 ) ]
+}
+tracks/2/type = "value"
+tracks/2/path = NodePath(".:modulate")
+tracks/2/interp = 1
+tracks/2/loop_wrap = true
+tracks/2/imported = false
+tracks/2/enabled = true
+tracks/2/keys = {
+"times": PoolRealArray( 0, 0.6, 1, 2 ),
+"transitions": PoolRealArray( 1, 1, 1, 1 ),
+"update": 0,
+"values": [ Color( 1, 1, 1, 0 ), Color( 1, 1, 1, 1 ), Color( 1, 1, 1, 1 ), Color( 1, 1, 1, 0 ) ]
+}
+
+[sub_resource type="RectangleShape2D" id=8]
+extents = Vector2( 160, 52 )
+
+[sub_resource type="NoiseTexture" id=9]
+
+[sub_resource type="Animation" id=10]
+resource_name = "Out"
+length = 4.0
+tracks/0/type = "value"
+tracks/0/path = NodePath("Sprite:modulate")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 4 ),
+"transitions": PoolRealArray( 1, 1 ),
+"update": 0,
+"values": [ Color( 1, 1, 1, 0 ), Color( 1, 1, 1, 1 ) ]
+}
+
+[sub_resource type="Animation" id=11]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/path = NodePath("Sprite:modulate")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ Color( 1, 1, 1, 0 ) ]
+}
+
+[node name="Elevator" type="Node2D"]
+pause_mode = 2
+script = SubResource( 7 )
+__meta__ = {
+"_edit_lock_": true
+}
+
+[node name="TileMap" type="TileMap" parent="."]
+position = Vector2( -160, 0 )
+scale = Vector2( 8, 8 )
+tile_set = ExtResource( 1 )
+cell_size = Vector2( 8, 8 )
+format = 1
+tile_data = PoolIntArray( 0, 0, 131073, 1, 0, 131073, 2, 0, 131073, 3, 0, 131073, 4, 0, 131073, 65536, 0, 131073, 65537, 0, 131073, 65538, 0, 131073, 65539, 0, 131073, 65540, 0, 131073 )
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+autoplay = "Pos1"
+anims/Pos1 = SubResource( 1 )
+anims/Pos2 = SubResource( 2 )
+anims/Pos3 = SubResource( 3 )
+anims/RESET = SubResource( 4 )
+
+[node name="ArrowUp" type="Sprite" parent="."]
+modulate = Color( 1, 1, 1, 0 )
+position = Vector2( 0, -105 )
+scale = Vector2( 1e-05, 1e-05 )
+texture = ExtResource( 3 )
+region_enabled = true
+region_rect = Rect2( 73, 41, 7, 7 )
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="ArrowUp"]
+autoplay = "move"
+anims/move = SubResource( 5 )
+
+[node name="ArrowDown" type="Sprite" parent="."]
+position = Vector2( 0, 145.471 )
+scale = Vector2( 6.78928, -6.78928 )
+texture = ExtResource( 3 )
+region_enabled = true
+region_rect = Rect2( 73, 41, 7, 7 )
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="ArrowDown"]
+autoplay = "move"
+anims/move = SubResource( 6 )
+
+[node name="Area2D" type="Area2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="Area2D"]
+position = Vector2( 0, -52 )
+shape = SubResource( 8 )
+
+[node name="Timer" type="Timer" parent="."]
+wait_time = 3.0
+one_shot = true
+
+[node name="CanvasLayer" type="CanvasLayer" parent="."]
+
+[node name="Sprite" type="Sprite" parent="CanvasLayer"]
+modulate = Color( 1, 1, 1, 0 )
+scale = Vector2( 8, 8 )
+texture = SubResource( 9 )
+__meta__ = {
+"_edit_lock_": true
+}
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="CanvasLayer"]
+autoplay = "RESET"
+anims/Out = SubResource( 10 )
+anims/RESET = SubResource( 11 )
+
+[connection signal="body_entered" from="Area2D" to="." method="_on_Area2D_body_entered"]
+[connection signal="body_exited" from="Area2D" to="." method="_on_Area2D_body_exited"]
+[connection signal="timeout" from="Timer" to="." method="_on_Timer_timeout"]

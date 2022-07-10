@@ -15,7 +15,14 @@ var healing: bool = false
 var heal_buffer: float
 onready var camera = get_parent().get_parent().get_parent().get_node(\"Player/Camera2D\")
 
+export var narrative_checkpoint = false
+export var elevator_checkpoint = false
+
 func _ready():
+	if narrative_checkpoint && Global.progress.presentation2:
+		queue_free()
+	if elevator_checkpoint && Global.elevator_checkpoint:
+		position = Global.checkpoint
 	$CanvasLayer/Transition.material.set_shader_param(\"progress\",0)
 	spawned = Vector2(abs(position.x-Global.checkpoint.x),abs(position.y-Global.checkpoint.y)) < Vector2(100,100)
 	if spawned:
@@ -28,6 +35,8 @@ func _ready():
 			current_state = Consts.INACTIVE
 
 func _physics_process(delta):
+	if elevator_checkpoint:
+		position = get_parent().get_parent().get_node(\"Elevator\").position
 	match(current_state):
 		Consts.INACTIVE:
 			$AnimationPlayer.play(\"inactive\")
@@ -44,14 +53,15 @@ func _physics_process(delta):
 		#camera.offset_h = 0
 		#camera.offset_v = -0.5
 			
-		heal_buffer = min(heal_buffer+delta,Global.player_life_max)
+		heal_buffer = min(heal_buffer+delta*10,Global.player_life_max)
 		Global.player_life = int(heal_buffer)
-		if Global.carrot<5: Global.carrot = min(Global.carrot+delta*2,5)
+		if Global.carrot<5: Global.carrot = min(Global.carrot+delta*3,5)
 	else:
 		$CanvasLayer/Transition.material.set_shader_param(\"progress\",0)
 
 func _on_Hurtbox_body_entered(body):
 	if body.is_in_group(\"Player\"): 
+		Global.game_saving = true
 		spawned = Vector2(abs(position.x-Global.checkpoint.x),abs(position.y-Global.checkpoint.y)) < Vector2(100,100)
 		active = spawned
 		
@@ -66,6 +76,7 @@ func _on_Hurtbox_body_entered(body):
 
 func _on_Hurtbox_body_exited(body):
 	if body.is_in_group(\"Player\"): 
+		Global.game_saving = false
 		camera.can_set_offset=true
 		reuse = true
 		if active:
@@ -76,7 +87,10 @@ func _on_Hurtbox_body_exited(body):
 
 func _on_AnimationPlayer_animation_finished(anim_name):
 	if current_state == Consts.ACTIVE:
+		#Global.elevator_checkpoint = elevator_checkpoint
+		
 		active=true
+		
 		current_state = Consts.IDLE
 		Global.checkpoint = get_parent().get_parent().get_parent().get_node(\"Player\").position
 		Global.soft_checkpoint = Global.checkpoint
@@ -420,7 +434,7 @@ tracks/5/keys = {
 "times": PoolRealArray( 0 ),
 "transitions": PoolRealArray( 1 ),
 "update": 1,
-"values": [ 0.25 ]
+"values": [ 0.4 ]
 }
 tracks/6/type = "value"
 tracks/6/path = NodePath("SpriteSheet:modulate")
@@ -611,7 +625,7 @@ tracks/5/keys = {
 "times": PoolRealArray( 0 ),
 "transitions": PoolRealArray( 1 ),
 "update": 1,
-"values": [ 0.25 ]
+"values": [ 0.4 ]
 }
 tracks/6/type = "value"
 tracks/6/path = NodePath("SpriteSheet:modulate")
@@ -651,9 +665,11 @@ tracks/8/keys = {
 }
 
 [sub_resource type="RectangleShape2D" id=6]
-extents = Vector2( 40, 40 )
+extents = Vector2( 40, 56 )
 
 [node name="Checkpoint" instance=ExtResource( 1 )]
+pause_mode = 2
+process_priority = -1
 collision_layer = 0
 script = SubResource( 1 )
 
@@ -661,6 +677,7 @@ script = SubResource( 1 )
 layer = 2
 
 [node name="Transition" parent="CanvasLayer" index="0" instance=ExtResource( 4 )]
+visible = true
 material = SubResource( 13 )
 
 [node name="SpriteSheet" parent="." index="1"]
@@ -701,7 +718,7 @@ position = Vector2( 0, 8 )
 collision_mask = 96
 
 [node name="CollisionShape2D" parent="Hurtbox" index="0"]
-position = Vector2( 0, -48 )
+position = Vector2( 0, -64 )
 shape = SubResource( 6 )
 
 [connection signal="animation_finished" from="AnimationPlayer" to="." method="_on_AnimationPlayer_animation_finished"]

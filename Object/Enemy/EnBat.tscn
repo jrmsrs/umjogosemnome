@@ -88,7 +88,7 @@ func get_target_path(target_pos):
 
 func _handle_life():
 	if life<=0:
-		_handle_drop(25,35)
+		_handle_drop(25,20)
 		queue_free()
 func _handle_drop(crystal_rate, carrot_rate):
 	if randi()%100 <= crystal_rate:

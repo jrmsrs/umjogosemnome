@@ -3,6 +3,11 @@
 [sub_resource type="GDScript" id=257]
 script/source = "extends StaticBody2D
 
+func _ready():
+	if Global.progress.intro2:
+		collision_layer = 0
+		collision_mask = 1
+
 func _on_Timer_timeout():
 	get_node(\"CollisionShape2D\").disabled = false
 "

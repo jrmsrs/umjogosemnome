@@ -8,6 +8,10 @@ script/source = "extends \"res://Object/Entity/Grounded.tscn::16\"
 var ready = false
 onready var player = get_parent().get_parent().get_node(\"Player\")
 
+func _ready():
+	if Global.progress.presentation2: queue_free()
+	#jump_force = 880
+
 func _physics_process(delta):
 	if ready: 
 		current_state = Consts.RUN
@@ -208,6 +212,7 @@ collision_layer = 0
 collision_mask = 4
 script = SubResource( 2 )
 run_speed = 120
+jump_force = -880
 
 [node name="SpriteSheet" parent="." index="0"]
 material = SubResource( 22 )

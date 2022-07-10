@@ -17,8 +17,8 @@ func _ready():
 		current_state = Consts.ACTIVE
 	match(type):
 		DASH: if Global.dash_UNLOCKED: queue_free()
-		EXPLOSIVE_CARROT: if false: queue_free()
-		WALL_JUMP: if false: queue_free()
+		EXPLOSIVE_CARROT: if Global.excarrot_UNLOCKED: queue_free()
+		WALL_JUMP: if Global.wjump_UNLOCKED: queue_free()
 		DOUBLE_JUMP: if Global.djump_UNLOCKED: queue_free()
 
 func _physics_process(delta):

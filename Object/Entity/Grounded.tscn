@@ -5,6 +5,7 @@
 [sub_resource type="GDScript" id=16]
 script/source = "extends KinematicBody2D
 
+var origin_position: Vector2
 var action: bool = false
 var action_buffer: bool = action
 var current_action_area: Area2D = null
@@ -18,7 +19,7 @@ var gravity: int = 320 * pscale
 var knockback: int = 0
 
 export var run_speed: int = 40 *8
-export var jump_force: int = -110 * pscale
+export var jump_force: int = 0 #-110 * pscale
 export var life_max: float = 2
 var life: float = life_max
 
@@ -31,6 +32,7 @@ onready var GroundParticles = $GroundParticles
 var timer: float = 0
 
 func _ready():
+	life=life_max
 	$SpriteSheet.material = $SpriteSheet.material.duplicate()
 
 func _physics_process(delta):
