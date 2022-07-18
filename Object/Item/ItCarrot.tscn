@@ -8,7 +8,7 @@
 script/source = "extends \"res://Object/Entity/Object.tscn::16\"
 
 export var active: bool = true
-export var autodestroy: bool = true
+export var autodestroy: bool
 
 func _ready():
 	if active:
@@ -41,9 +41,7 @@ func _physics_process(delta):
 				current_state = Consts.GROUND
 	_limit_vspeed()
 	_special()
-	if !autodestroy:
-		if get_node_or_null (\"Timer\"):
-			get_node(\"Timer\").queue_free()
+	if autodestroy && $Timer.is_stopped(): $Timer.start()
 
 func _special():
 	pass
@@ -121,6 +119,7 @@ extents = Vector2( 16, 16 )
 collision_layer = 0
 collision_mask = 128
 script = SubResource( 1 )
+autodestroy = true
 
 [node name="SpriteSheet" parent="." index="0"]
 position = Vector2( 0, 12 )
@@ -148,7 +147,6 @@ shape = SubResource( 6 )
 
 [node name="Timer" type="Timer" parent="." index="5"]
 wait_time = 10.0
-autostart = true
 
 [connection signal="area_entered" from="Hurtbox" to="." method="_on_Hurtbox_area_entered"]
 [connection signal="body_entered" from="Hurtbox" to="." method="_on_Hurtbox_body_entered"]

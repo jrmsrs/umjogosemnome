@@ -123,6 +123,7 @@ tracks/0/keys = {
 
 [node name="SpecialItCarrot" instance=ExtResource( 1 )]
 script = SubResource( 1 )
+autodestroy = false
 
 [node name="SpriteSheet" parent="." index="0"]
 material = SubResource( 3 )

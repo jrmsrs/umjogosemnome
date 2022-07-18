@@ -80,6 +80,8 @@ extents = Vector2( 112, 12 )
 
 [node name="MovingPlatform" type="KinematicBody2D"]
 z_index = 1
+collision_layer = 197
+collision_mask = 197
 script = SubResource( 2 )
 
 [node name="TileMap" type="TileMap" parent="."]
@@ -88,6 +90,8 @@ scale = Vector2( 8, 8 )
 tile_set = ExtResource( 3 )
 cell_size = Vector2( 8, 8 )
 cell_custom_transform = Transform2D( 128, 0, 0, 128, 0, 0 )
+collision_layer = 197
+collision_mask = 197
 format = 1
 
 [node name="SpriteSheet" type="Sprite" parent="."]

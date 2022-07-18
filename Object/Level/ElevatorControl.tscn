@@ -15,6 +15,10 @@ const pos = [
 ]
 
 func _process(delta):
+	# Só funciona ao obter o primeiro rato
+	$ControlBell/Sprite.visible = Global.progress.presentation2
+	$TileMap.visible = Global.progress.presentation2
+	if Global.progress.rats<=0: return
 	# Caso seja animação Pos1, o indice atual seria 1-1 = 0; Pos2, o indice seria 2-1 = 1; etc
 	var i = int(elevator.get_node(\"AnimationPlayer\").current_animation)-1
 	# Pode subir se i for menor que o min entre o lenght do array pos[] e a qtd de ratos salvos/2 (limitador)

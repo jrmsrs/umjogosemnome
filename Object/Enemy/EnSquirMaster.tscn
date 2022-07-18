@@ -365,7 +365,6 @@ position = Vector2( 3.57628e-07, -64 )
 texture = ExtResource( 2 )
 hframes = 3
 vframes = 3
-frame = 6
 
 [node name="AnimationPlayer" parent="." index="1"]
 playback_speed = 1.5

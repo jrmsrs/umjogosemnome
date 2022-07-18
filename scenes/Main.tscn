@@ -1,4 +1,4 @@
-[gd_scene load_steps=111 format=2]
+[gd_scene load_steps=116 format=2]
 
 [ext_resource path="res://Object/Player.tscn" type="PackedScene" id=1]
 [ext_resource path="res://assets/04.png" type="Texture" id=2]
@@ -36,6 +36,7 @@
 [ext_resource path="res://Object/Enemy/EnSquir.tscn" type="PackedScene" id=34]
 [ext_resource path="res://Object/Enemy/EnCrabMaster.tscn" type="PackedScene" id=35]
 [ext_resource path="res://Object/Enemy/EnSquirMaster.tscn" type="PackedScene" id=36]
+[ext_resource path="res://Object/Special/Tip.tscn" type="PackedScene" id=37]
 
 [sub_resource type="GDScript" id=264]
 script/source = "extends Node
@@ -154,6 +155,7 @@ orbit_velocity_random = 0.0
 angle = 720.0
 angle_random = 1.0
 scale_curve = SubResource( 300 )
+color = Color( 0, 0, 0, 0.352941 )
 
 [sub_resource type="GDScript" id=298]
 script/source = "extends Particles2D
@@ -852,6 +854,46 @@ tracks/0/keys = {
 "values": [ Color( 0, 0, 0, 1 ), Color( 0, 0, 0, 1 ), Color( 1, 1, 1, 1 ), Color( 0, 0, 0, 1 ) ]
 }
 
+[sub_resource type="RectangleShape2D" id=302]
+extents = Vector2( 64, 32 )
+
+[sub_resource type="RectangleShape2D" id=305]
+extents = Vector2( 112, 48 )
+
+[sub_resource type="GDScript" id=303]
+script/source = "extends Area2D
+
+enum _enum { MOVE, JUMP, ATTACK1, WHIP, HOLD_JUMP, ATTACK2, CLIMB, DASH, EXCARROT, WALL_JUMP, DOUBLE_JUMP, ELEVATOR }
+
+export(_enum) var type
+export var oneShot = false
+var text: String = \"\"
+
+func _process(delta):
+	$CanvasLayer/TextLabel.bbcode_text=text
+
+func _on_Area2D_body_entered(body):
+	match(type):
+		_enum.MOVE: text=\"[center]A - D: Move\\nMouse: Aim\"
+		_enum.JUMP: text=\"[center]W: jump\"
+		_enum.ATTACK1: text=\"[center]MB Left: Primary Attack\"
+		_enum.WHIP: text=\"[center]Aim direciona ataques\"
+		_enum.HOLD_JUMP: text=\"[center]Hold W: Long Jump\"
+		_enum.ATTACK2: text=\"[center]MB Left: Primary Attack\"
+		_enum.CLIMB: text=\"[center]E: Climb Hopes/Stairs\"
+		_enum.DASH: text=\"[center]Space(+A/D): Dash\"
+		_enum.EXCARROT: text=\"[center]Secondary Attack lida com blocos destrutivos\"
+		_enum.WALL_JUMP: text=\"[center]Jump while sliding: Wall Jump\"
+		_enum.DOUBLE_JUMP: text=\"[center]Jump while on air: Double Jump\"
+		_enum.ELEVATOR: text=\"[center]Elevador nivel X desbloqueado\"
+
+func _on_Tip_body_exited(body):
+	text = \"\"
+"
+
+[sub_resource type="RectangleShape2D" id=304]
+extents = Vector2( 32, 32 )
+
 [node name="Main" type="Node"]
 script = SubResource( 264 )
 
@@ -951,7 +993,7 @@ shadow_enabled = true
 script = ExtResource( 5 )
 
 [node name="Player" parent="World" instance=ExtResource( 1 )]
-position = Vector2( 1216, 512 )
+position = Vector2( 1216, 408 )
 
 [node name="Hint" type="Sprite" parent="World/Player"]
 visible = false
@@ -986,7 +1028,7 @@ shape = SubResource( 1 )
 [node name="Dust" type="Particles2D" parent="World/MapArea/Surface"]
 position = Vector2( 476, -576 )
 scale = Vector2( 8, 8 )
-amount = 60
+amount = 160
 lifetime = 10.0
 fract_delta = false
 visibility_rect = Rect2( -285, 0, 570, 136 )
@@ -1113,7 +1155,8 @@ collision_layer = 2
 collision_mask = 0
 monitoring = false
 __meta__ = {
-"_edit_group_": true
+"_edit_group_": true,
+"_edit_lock_": true
 }
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="World/MapArea/Area1/Area1-5"]
@@ -1612,31 +1655,25 @@ autodestroy = false
 [node name="SpecialItCarrot" parent="World/Level/ItemCarrot" instance=ExtResource( 20 )]
 position = Vector2( 2040, 512 )
 active = false
-autodestroy = false
 
 [node name="SpecialItCarrot3" parent="World/Level/ItemCarrot" instance=ExtResource( 20 )]
 position = Vector2( 1768, 512 )
-autodestroy = false
 
 [node name="SpecialItCarrot4" parent="World/Level/ItemCarrot" instance=ExtResource( 20 )]
 position = Vector2( 1712, 512 )
-autodestroy = false
 
 [node name="SpecialItCarrot2" parent="World/Level/ItemCarrot" instance=ExtResource( 20 )]
 position = Vector2( 2088, 512 )
 active = false
-autodestroy = false
 
 [node name="SpecialItCarrot5" parent="World/Level/ItemCarrot" instance=ExtResource( 20 )]
 position = Vector2( 2344, 512 )
 active = false
-autodestroy = false
 condition = 10
 
 [node name="SpecialItCarrot6" parent="World/Level/ItemCarrot" instance=ExtResource( 20 )]
 position = Vector2( 2624, 512 )
 active = false
-autodestroy = false
 condition = 11
 
 [node name="ItemUpgrades" type="Node2D" parent="World/Level"]
@@ -1821,7 +1858,7 @@ margin_bottom = 20.5
 custom_fonts/normal_font = SubResource( 279 )
 bbcode_enabled = true
 bbcode_text = "[center]I"
-text = "I"
+text = "[center]I"
 fit_content_height = true
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="World/NarrativeShit/Movie1-2"]
@@ -1932,7 +1969,7 @@ position = Vector2( 5760, 1856 )
 position = Vector2( 128, 6656 )
 
 [node name="Crabzin12" parent="World/Enemy" instance=ExtResource( 9 )]
-position = Vector2( 512, 6784 )
+position = Vector2( 648, 6784 )
 
 [node name="Crabzin6" parent="World/Enemy" instance=ExtResource( 9 )]
 position = Vector2( 224, 5056 )
@@ -2061,6 +2098,10 @@ position = Vector2( -576, 3008 )
 
 [node name="Rat2" parent="World/NPC" instance=ExtResource( 30 )]
 position = Vector2( 832, 6208 )
+
+[node name="Rat10" parent="World/NPC" instance=ExtResource( 30 )]
+position = Vector2( 1472, 6208 )
+flip = false
 
 [node name="Rat3" parent="World/NPC" instance=ExtResource( 30 )]
 visible = false
@@ -2336,6 +2377,114 @@ autoplay = "Shine"
 anims/RESET = SubResource( 291 )
 anims/Shine = SubResource( 292 )
 
+[node name="TutorialEtc" type="Node2D" parent="World"]
+
+[node name="Tip" parent="World/TutorialEtc" instance=ExtResource( 37 )]
+position = Vector2( 1216, 480 )
+
+[node name="CollisionShape2D" parent="World/TutorialEtc/Tip" index="0"]
+shape = SubResource( 302 )
+
+[node name="Tip2" parent="World/TutorialEtc" instance=ExtResource( 37 )]
+position = Vector2( 1600, 480 )
+type = 2
+
+[node name="CollisionShape2D" parent="World/TutorialEtc/Tip2" index="0"]
+shape = SubResource( 302 )
+
+[node name="Tip4" parent="World/TutorialEtc" instance=ExtResource( 37 )]
+position = Vector2( 2624, 2144 )
+type = 3
+
+[node name="CollisionShape2D" parent="World/TutorialEtc/Tip4" index="0"]
+shape = SubResource( 302 )
+
+[node name="Tip5" parent="World/TutorialEtc" instance=ExtResource( 37 )]
+position = Vector2( 4416, 2016 )
+type = 5
+
+[node name="CollisionShape2D" parent="World/TutorialEtc/Tip5" index="0"]
+shape = SubResource( 302 )
+
+[node name="Tip7" parent="World/TutorialEtc" instance=ExtResource( 37 )]
+position = Vector2( 2048, 864 )
+type = 6
+
+[node name="CollisionShape2D" parent="World/TutorialEtc/Tip7" index="0"]
+shape = SubResource( 302 )
+
+[node name="Tip8" parent="World/TutorialEtc" instance=ExtResource( 37 )]
+position = Vector2( 1440, 2592 )
+type = 7
+
+[node name="CollisionShape2D" parent="World/TutorialEtc/Tip8" index="0"]
+shape = SubResource( 302 )
+
+[node name="Tip9" parent="World/TutorialEtc" instance=ExtResource( 37 )]
+position = Vector2( -4000, 6720 )
+type = 8
+
+[node name="CollisionShape2D" parent="World/TutorialEtc/Tip9" index="0"]
+position = Vector2( -48, 16 )
+shape = SubResource( 305 )
+
+[node name="Tip6" parent="World/TutorialEtc" instance=ExtResource( 37 )]
+position = Vector2( 3456, 2080 )
+type = 4
+
+[node name="CollisionShape2D" parent="World/TutorialEtc/Tip6" index="0"]
+shape = SubResource( 302 )
+
+[node name="Tip10" parent="World/TutorialEtc" instance=ExtResource( 37 )]
+position = Vector2( -544, 5600 )
+type = 9
+
+[node name="CollisionShape2D" parent="World/TutorialEtc/Tip10" index="0"]
+shape = SubResource( 302 )
+
+[node name="Tip11" parent="World/TutorialEtc" instance=ExtResource( 37 )]
+position = Vector2( -1152, 1376 )
+type = 10
+
+[node name="CollisionShape2D" parent="World/TutorialEtc/Tip11" index="0"]
+shape = SubResource( 302 )
+
+[node name="Tip3" parent="World/TutorialEtc" instance=ExtResource( 37 )]
+position = Vector2( 1824, 480 )
+script = SubResource( 303 )
+type = 1
+
+[node name="CollisionShape2D" parent="World/TutorialEtc/Tip3" index="0"]
+shape = SubResource( 304 )
+
+[node name="Tip12" parent="World/TutorialEtc" instance=ExtResource( 37 )]
+position = Vector2( -4352, 6752 )
+type = 11
+
+[node name="CollisionShape2D" parent="World/TutorialEtc/Tip12" index="0"]
+shape = SubResource( 302 )
+
+[node name="Tip13" parent="World/TutorialEtc" instance=ExtResource( 37 )]
+position = Vector2( -2304, 5600 )
+type = 11
+
+[node name="CollisionShape2D" parent="World/TutorialEtc/Tip13" index="0"]
+shape = SubResource( 302 )
+
+[node name="Tip14" parent="World/TutorialEtc" instance=ExtResource( 37 )]
+position = Vector2( -512, 1248 )
+type = 11
+
+[node name="CollisionShape2D" parent="World/TutorialEtc/Tip14" index="0"]
+shape = SubResource( 302 )
+
+[node name="Tip15" parent="World/TutorialEtc" instance=ExtResource( 37 )]
+position = Vector2( 768, 2528 )
+type = 11
+
+[node name="CollisionShape2D" parent="World/TutorialEtc/Tip15" index="0"]
+shape = SubResource( 302 )
+
 [node name="TransitionTimer" type="Timer" parent="."]
 pause_mode = 2
 wait_time = 0.75
@@ -2377,3 +2526,18 @@ one_shot = true
 [editable path="World/Level/OneWayPlatform/OneWayPlatform4"]
 [editable path="World/Enemy/EnemyInvisibleWall/EnInvisibleWall6"]
 [editable path="World/CLayer/Transition"]
+[editable path="World/TutorialEtc/Tip"]
+[editable path="World/TutorialEtc/Tip2"]
+[editable path="World/TutorialEtc/Tip4"]
+[editable path="World/TutorialEtc/Tip5"]
+[editable path="World/TutorialEtc/Tip7"]
+[editable path="World/TutorialEtc/Tip8"]
+[editable path="World/TutorialEtc/Tip9"]
+[editable path="World/TutorialEtc/Tip6"]
+[editable path="World/TutorialEtc/Tip10"]
+[editable path="World/TutorialEtc/Tip11"]
+[editable path="World/TutorialEtc/Tip3"]
+[editable path="World/TutorialEtc/Tip12"]
+[editable path="World/TutorialEtc/Tip13"]
+[editable path="World/TutorialEtc/Tip14"]
+[editable path="World/TutorialEtc/Tip15"]

@@ -1,4 +1,4 @@
-[gd_scene load_steps=52 format=2]
+[gd_scene load_steps=57 format=2]
 
 [ext_resource path="res://Object/Entity/Grounded.tscn" type="PackedScene" id=1]
 [ext_resource path="res://assets/pix.png" type="Texture" id=2]
@@ -18,6 +18,7 @@ const PROJECTILE := preload(\"res://Object/Carrot.tscn\")
 
 var dash: bool
 var dash_counter: int = 0
+var dash_dir: int = 0
 
 var djump: bool = false
 var jump_counter: int = 0
@@ -39,6 +40,10 @@ var angleaim: float
 onready var DashParticles = $DashParticles
 onready var GroundWallParticles = $GroundWallParticles
 
+enum axis {LEFTX, LEFTY, RIGHTX, RIGHTY}
+
+var controller: bool = false
+
 func _ready(): 
 	Global.player=self
 	if Global.first_position:
@@ -50,6 +55,22 @@ func _ready():
 	$Aim.queue_free()
 
 func _physics_process(delta):
+	var axis1_dir = Vector2(-Input.get_joy_axis(0,axis.LEFTX),-Input.get_joy_axis(0,axis.LEFTY))
+	if axis1_dir!=Vector2.ZERO:
+		$Axis1.visible=false#Global.DEBUG
+		$Axis1.rotation = Vector2(0,0).angle_to_point(axis1_dir)
+		#get_viewport().warp_mouse($Axis1/Sprite.get_global_transform_with_canvas().origin)
+		controller = true
+		$ControllerTimer.start()
+	else: $Axis1.visible=false
+	if controller: get_viewport().warp_mouse($Axis1/Sprite.get_global_transform_with_canvas().origin)
+	var axis2_dir = Vector2(-Input.get_joy_axis(0,axis.RIGHTX),-Input.get_joy_axis(0,axis.RIGHTY))
+	if axis2_dir!=Vector2.ZERO:
+		$Axis2.visible=Global.debug
+		$Axis2.rotation = Vector2(0,0).angle_to_point(axis2_dir)
+		get_viewport().warp_mouse($Axis2/Sprite.get_global_transform_with_canvas().origin)
+	else: $Axis2.visible=Global.debug
+	
 	run_speed = origin_run_speed if Global.whip_UNLOCKED else origin_run_speed*.75
 	jump_force = origin_jump_force if Global.whip_UNLOCKED else origin_jump_force*.8
 	dir = Input.get_action_strength('game_left') - Input.get_action_strength('game_right')
@@ -99,6 +120,7 @@ func _physics_process(delta):
 # States
 func _idle_state(_delta):
 	Animation.play(\"idle\")
+	$GroundParticles.emitting=false
 	_move_and_slide()
 	_apply_gravity(_delta)
 	_flip_player()
@@ -253,11 +275,11 @@ func _attack1_state(_delta):
 		_handle_jump()
 	
 	if $Attack1/CollisionShape2D.disabled:
-		var angle = Vector2(position.x,position.y-40).angle_to_point(get_global_mouse_position())
 		var ppos = Vector2(position.x,position.y-40)
-		var flip_shove = -20 if Sprite.flip_h else 200
-		var flip_whip = 0 if Sprite.flip_h else 180
-		$Attack1.rotation_degrees = 60* ppos.angle_to_point(get_global_mouse_position()) + flip_whip if Global.whip_UNLOCKED else 60* ppos.angle_to_point(get_global_mouse_position()) + flip_shove
+		var angle = ppos.angle_to_point(get_global_mouse_position())
+		var flip_shove = deg2rad(-20) if Sprite.flip_h else deg2rad(200)
+		var flip_whip = deg2rad(0) if Sprite.flip_h else deg2rad(180)
+		$Attack1.rotation = ppos.angle_to_point(get_global_mouse_position()) + flip_whip if Global.whip_UNLOCKED else ppos.angle_to_point(get_global_mouse_position()) + flip_shove
 	
 	_move_lr()
 	_move_and_slide()
@@ -289,21 +311,37 @@ func _attack2_state(_delta):
 	else: current_state = Consts.IDLE
 
 func _dash_state(_delta):
+	# Se está no chao e usa dash sem direcionais, desvia saltando para tras
+	if dir==0 && !Animation.current_animation==\"dashup\" && is_on_floor():
+		_generate_jump_particles()
+		velocity.y-=400
+	if !(Animation.current_animation==\"dash\" || Animation.current_animation==\"dashup\"):
+		dash_dir = dir
+		if is_on_floor(): Animation.play(\"dash\" if dash_dir!=0 else \"dashup\")
+		else: Animation.play(\"dash\")
 	dash_counter-=1
-	Animation.play(\"dash\")
-	GroundParticles.emitting = abs(velocity.x)>10
-	DashParticles.emitting = abs(velocity.x)>10
-	DashParticles.position.x = -16 if dir>0 else 16
-	DashParticles.direction.x = 2 if dir>0 else -2
+	GroundParticles.emitting = abs(velocity.x)>10 && dash_dir!=0
+	DashParticles.emitting = Animation.current_animation==\"dash\"
 	if velocity.y!=0:
 		DashParticles.gravity.y = -velocity.y * .15
 	knockback=0
 	
-	if dir<=0:
+	if dash_dir<0:
 		velocity.x = run_speed * 4
-	else: 
+		DashParticles.direction.x = -2
+		DashParticles.position.x = 16
+	elif dash_dir>0: 
 		velocity.x = -run_speed * 4
-	velocity.y = 0
+		DashParticles.direction.x = 2
+		DashParticles.position.x = -16
+	else:
+		if is_on_floor(): 
+			velocity.x = run_speed * 2 if Sprite.flip_h else -run_speed * 2
+		elif Animation.current_animation == \"dash\":
+			velocity.x = -run_speed * 4 if Sprite.flip_h else run_speed * 4
+		DashParticles.direction.x = -2 * sign(velocity.x)
+		DashParticles.position.x = 16 * sign(velocity.x)
+	if Animation.current_animation==\"dash\": velocity.y = 0
 	_move_and_slide()
 	
 	collision_layer = 64 #7
@@ -375,7 +413,7 @@ func _climb_state(delta):
 		current_state = Consts.IDLE
 
 func _hurt_state(_delta):
-	$Invincible.start(2)
+	$Invincible.start(.7)
 	Animation.play(\"hurt\")
 	velocity.x = knockback
 	if is_on_floor():
@@ -418,14 +456,18 @@ func _handle_jump():
 		jump_counter-=1
 
 func _handle_life():
-	if Global.player_life <= 0: # life<=0:
+	if Global.player_life <= 0:
 		Global.paused = Global.INHARD
-		#get_tree().reload_current_scene()
 func _is_player(): 
 	return true
 func _flip_player():
-	#scale.x = -1 if get_local_mouse_position().x<0 else 1
-	Sprite.flip_h = get_local_mouse_position().x<0
+	if controller:
+		var player_axis_diff = $Axis1/Sprite.get_global_transform_with_canvas()[2].x-get_global_transform_with_canvas()[2].x
+		if player_axis_diff>0:
+			Sprite.flip_h = false
+		if player_axis_diff<0:
+			Sprite.flip_h = true
+	else: Sprite.flip_h = get_local_mouse_position().x<0
 
 # Signals
 func _on_AnimationPlayer_animation_finished(anim_name):
@@ -434,6 +476,7 @@ func _on_AnimationPlayer_animation_finished(anim_name):
 	if current_state == Consts.DASH:
 		GroundParticles.emitting = is_on_floor()
 		DashParticles.emitting = false
+		if anim_name==\"dashup\": velocity.y=0
 		current_state = Consts.IDLE
 		collision_layer = 65
 		collision_mask = 65
@@ -544,6 +587,12 @@ func _on_CinematicAreaCollider_area_exited(area):
 		get_parent().get_node(\"NPC\").get_node(\"CinematicMole\").queue_free()
 		area.queue_free()
 		#$CinematicAreaCollider.queue_free()
+
+func _unhandled_key_input(event):
+	if event.is_pressed(): controller=false
+
+func _on_ControllerTimer_timeout():
+	controller=false
 "
 
 [sub_resource type="Shader" id=32]
@@ -815,6 +864,34 @@ tracks/0/keys = {
 "transitions": PoolRealArray( 1 ),
 "update": 1,
 "values": [ 6 ]
+}
+tracks/1/type = "value"
+tracks/1/path = NodePath("SpriteSheet:texture")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ ExtResource( 7 ) ]
+}
+
+[sub_resource type="Animation" id=67]
+resource_name = "dashown"
+length = 0.15
+tracks/0/type = "value"
+tracks/0/path = NodePath("SpriteSheet:frame")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 1,
+"values": [ 5 ]
 }
 tracks/1/type = "value"
 tracks/1/path = NodePath("SpriteSheet:texture")
@@ -1608,6 +1685,70 @@ tracks/0/keys = {
 "values": [ Color( 0, 0, 0, 1 ) ]
 }
 
+[sub_resource type="Animation" id=63]
+resource_name = "Anim"
+length = 2.0
+loop = true
+tracks/0/type = "value"
+tracks/0/path = NodePath("Sprite:modulate")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 1.2, 1.7, 2 ),
+"transitions": PoolRealArray( 1, 1, 1, 1 ),
+"update": 0,
+"values": [ Color( 0, 0, 0, 1 ), Color( 0, 0, 0, 1 ), Color( 1, 1, 1, 1 ), Color( 0, 0, 0, 1 ) ]
+}
+
+[sub_resource type="Animation" id=64]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/path = NodePath("Sprite:modulate")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ Color( 0, 0, 0, 1 ) ]
+}
+
+[sub_resource type="Animation" id=65]
+resource_name = "Anim"
+length = 2.0
+loop = true
+tracks/0/type = "value"
+tracks/0/path = NodePath("Sprite:modulate")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0, 1.2, 1.7, 2 ),
+"transitions": PoolRealArray( 1, 1, 1, 1 ),
+"update": 0,
+"values": [ Color( 0, 0, 0, 1 ), Color( 0, 0, 0, 1 ), Color( 1, 1, 1, 1 ), Color( 0, 0, 0, 1 ) ]
+}
+
+[sub_resource type="Animation" id=66]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/path = NodePath("Sprite:modulate")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/keys = {
+"times": PoolRealArray( 0 ),
+"transitions": PoolRealArray( 1 ),
+"update": 0,
+"values": [ Color( 0, 0, 0, 1 ) ]
+}
+
 [node name="Player" groups=["Player"] instance=ExtResource( 1 )]
 collision_layer = 65
 collision_mask = 65
@@ -1627,6 +1768,7 @@ anims/attack_run = SubResource( 49 )
 anims/climb = SubResource( 38 )
 anims/climb1 = SubResource( 39 )
 anims/dash = SubResource( 40 )
+anims/dashown = SubResource( 67 )
 anims/dashup = SubResource( 41 )
 anims/fall = SubResource( 42 )
 anims/hurt = SubResource( 43 )
@@ -1879,6 +2021,43 @@ autoplay = "Anim"
 anims/Anim = SubResource( 59 )
 anims/RESET = SubResource( 60 )
 
+[node name="Axis1" type="Node2D" parent="." index="24"]
+position = Vector2( 0, -48 )
+scale = Vector2( 8, 8 )
+
+[node name="Sprite" type="Sprite" parent="Axis1" index="0"]
+modulate = Color( 0, 0, 0, 1 )
+position = Vector2( 12.125, -4.76837e-07 )
+rotation = 2.35619
+texture = ExtResource( 10 )
+centered = false
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="Axis1" index="1"]
+autoplay = "Anim"
+anims/Anim = SubResource( 63 )
+anims/RESET = SubResource( 64 )
+
+[node name="Axis2" type="Node2D" parent="." index="25"]
+position = Vector2( 0, -48 )
+scale = Vector2( 8, 8 )
+
+[node name="Sprite" type="Sprite" parent="Axis2" index="0"]
+modulate = Color( 0, 0, 0, 1 )
+position = Vector2( 150, 0 )
+rotation = 2.35619
+texture = ExtResource( 10 )
+centered = false
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="Axis2" index="1"]
+autoplay = "Anim"
+anims/Anim = SubResource( 65 )
+anims/RESET = SubResource( 66 )
+
+[node name="ControllerTimer" type="Timer" parent="." index="26"]
+wait_time = 15.0
+one_shot = true
+autostart = true
+
 [connection signal="animation_finished" from="AnimationPlayer" to="." method="_on_AnimationPlayer_animation_finished"]
 [connection signal="animation_started" from="AnimationPlayer" to="." method="_on_AnimationPlayer_animation_started"]
 [connection signal="area_entered" from="MapAreaCollider" to="Camera2D" method="_on_MapAreaCollider_area_entered"]
@@ -1892,5 +2071,6 @@ anims/RESET = SubResource( 60 )
 [connection signal="timeout" from="Invincible" to="." method="_on_Invincible_timeout"]
 [connection signal="body_entered" from="OWPDetect" to="." method="_on_OWPDetect_body_entered"]
 [connection signal="body_exited" from="OWPDetect" to="." method="_on_OWPDetect_body_exited"]
+[connection signal="timeout" from="ControllerTimer" to="." method="_on_ControllerTimer_timeout"]
 
 [editable path="Hurtbox"]

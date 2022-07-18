@@ -9,7 +9,7 @@
 script/source = "extends \"res://Object/Entity/Object.tscn::16\"
 
 onready var origin_pos = position
-onready var player = get_parent().get_parent().get_node(\"Player\")
+#onready var player = get_parent().get_parent().get_node(\"Player\")
 
 const CRYSTAL := preload(\"res://Object/Item/ItCrystal.tscn\")
 const CARROT := preload(\"res://Object/Item/ItCarrot.tscn\")
@@ -23,12 +23,19 @@ var threshold: int = 8
 var nav = null
 var chase: bool = false
 
+var hitting: bool = false
+var target
+var dodging: bool = false
+
 func _ready():
 	$SpriteSheet.material = $SpriteSheet.material.duplicate()
 	yield(owner, \"ready\")
 	nav = owner.nav 
 
 func _physics_process(delta):
+#	if !hitting: 
+	target = Global.player.position
+	if dodging && $DodgingTimer.is_stopped(): $DodgingTimer.start()
 	match current_state:
 		Consts.IDLE:
 			_idle_state()
@@ -55,8 +62,8 @@ func _chase_state():
 		position = origin_pos
 		path = []
 	
-	if player:
-		chase = position.distance_to(player.position) < 400
+	if Global.player:
+		chase = position.distance_to(target) < 400
 	
 	$SpriteSheet.flip_h = velocity.x<0
 	if path.size() > 0:
@@ -79,7 +86,10 @@ func move_to_target():
 		path.remove(0)
 	else:
 		var direction = global_position.direction_to(path[0])
-		velocity = direction * run_speed if position.distance_to(player.position) < 100 else direction * (run_speed * 1.5)
+		if !hitting && !dodging:
+			velocity = direction * run_speed if position.distance_to(target) < 100 else direction * (run_speed * 1.5)
+		else:
+			velocity = -direction * run_speed if position.distance_to(target) < 100 else -direction * (run_speed * 1.5)
 		velocity = move_and_slide(velocity)
 
 func get_target_path(target_pos):
@@ -112,12 +122,19 @@ func _on_Timer_timeout():
 func _on_Hitbox_area_entered(area):
 	$Hitbox/CollisionShape2D.scale = Vector2(.01,.01)
 	var body = area.get_parent()
-	if body.is_in_group(\"Player\"):
+	if body==Global.player:
 		if body.vunerable: 
 			Global.player_life -= 1 #body.life -= 1 
 			body.knockback = 300*sign(body.position.x - position.x) if sign(body.position.x - position.x) else 300
 			body.vunerable = false
+		hitting = true
+		dodging = true
 
+func _on_Hitbox_area_exited(area):
+	var body = area.get_parent()
+	if body==Global.player:
+		hitting = false
+		
 func _on_Hurtbox_area_entered(area):
 	var body = area.get_parent()
 	if area.is_in_group(\"PlayerSword\"):
@@ -131,6 +148,9 @@ func _on_AnimationPlayer_animation_finished(anim_name):
 	if current_state == Consts.HURT:
 		current_state = Consts.IDLE
 		knockback = 0
+
+func _on_DodgingTimer_timeout():
+	dodging = false
 "
 
 [sub_resource type="Shader" id=11]
@@ -237,7 +257,7 @@ tracks/6/keys = {
 
 [sub_resource type="Animation" id=10]
 resource_name = "hurt"
-length = 0.75
+length = 0.25
 step = 0.15
 tracks/0/type = "value"
 tracks/0/path = NodePath("SpriteSheet:frame")
@@ -533,10 +553,16 @@ monitorable = true
 position = Vector2( 0, -28 )
 shape = SubResource( 6 )
 
+[node name="DodgingTimer" type="Timer" parent="." index="8"]
+wait_time = 0.4
+one_shot = true
+
 [connection signal="animation_finished" from="AnimationPlayer" to="." method="_on_AnimationPlayer_animation_finished"]
 [connection signal="timeout" from="Timer" to="." method="_on_Timer_timeout"]
 [connection signal="area_entered" from="Hitbox" to="." method="_on_Hitbox_area_entered"]
+[connection signal="area_exited" from="Hitbox" to="." method="_on_Hitbox_area_exited"]
 [connection signal="area_entered" from="Hurtbox" to="." method="_on_Hurtbox_area_entered"]
+[connection signal="timeout" from="DodgingTimer" to="." method="_on_DodgingTimer_timeout"]
 
 [editable path="Hitbox"]
 [editable path="Hurtbox"]

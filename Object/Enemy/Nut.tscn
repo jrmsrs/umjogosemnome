@@ -98,10 +98,10 @@ tracks/3/loop_wrap = true
 tracks/3/imported = false
 tracks/3/enabled = true
 tracks/3/keys = {
-"times": PoolRealArray( 0, 0.5 ),
-"transitions": PoolRealArray( 1, 1 ),
+"times": PoolRealArray( 0, 0.6, 0.8 ),
+"transitions": PoolRealArray( 1, 1, 1 ),
 "update": 1,
-"values": [ true, false ]
+"values": [ true, false, true ]
 }
 tracks/4/type = "value"
 tracks/4/path = NodePath("Nut:modulate")
@@ -284,6 +284,7 @@ position = Vector2( 0, -0.75 )
 emitting = false
 amount = 64
 lifetime = 2.5
+one_shot = true
 speed_scale = 3.0
 explosiveness = 1.0
 randomness = 1.0

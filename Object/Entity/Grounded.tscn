@@ -148,7 +148,7 @@ func _limit_vspeed():
 		velocity.y=1500
 func _handle_action_objects():
 	if (action || action_buffer) && current_action_area:
-		if current_action_area.is_in_group(\"VStair\"):
+		if current_action_area.is_in_group(\"VStair\") && Global.progress.presentation1:
 			GroundParticles.emitting = false
 			current_state = Consts.CLIMB
 func _handle_oneway_platforms():
